@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -33,6 +34,8 @@ public class WebServerTest {
      *      partition on the request: valid, invalid
      *    handleScores: 
      *      partition on the request: valid, invalid
+     *    handleWatch:
+     *      partition on playerID given in request: valid, invalid
      */
     
     // Manual tests
@@ -161,6 +164,69 @@ public class WebServerTest {
         server.start();
         
         final URL invalid = new URL("http://localhost:" + server.port() + "/scores/extraneous");
+        final HttpURLConnection connection = (HttpURLConnection) invalid.openConnection();
+        assertEquals(404, connection.getResponseCode(), "response code");
+        server.stop();
+    }
+    
+    // tests handleWatch, covers valid request
+    // variables used in test case
+    private URL valid = null;
+    private BufferedReader reader = null;
+    private InputStream input = null;
+    private String line = null;
+    
+    @Test
+    public void testHandleWatchValid() throws IOException, URISyntaxException, InterruptedException {
+        List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
+        Board board = new Board(boardList);
+        final WebServer server = new WebServer(board, 0);
+        server.start();
+        
+        new URL("http://localhost:" + server.port() + "/flip/tom/1,1").openStream(); 
+        
+        new Thread(new Runnable() {
+            public void run() {
+                try {
+                    valid = new URL("http://localhost:" + server.port() + "/watch/jerry");
+                    input = valid.openStream();
+                    reader = new BufferedReader(new InputStreamReader(input, UTF_8));
+                    line = reader.readLine();
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } 
+            }
+        }).start();
+        
+        Thread.sleep(2000);
+        assertEquals(null, line, "watch should be blocking");
+        
+        new URL("http://localhost:" + server.port() + "/flip/jerry/1,2").openStream();
+        while (reader == null) { // wait for /watch to return
+            continue;
+        }
+//        assertEquals("3x2", reader.readLine(), "expected dimensions output");
+        assertEquals("up a", reader.readLine(), "expected output");
+        assertEquals("my a", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals(null, reader.readLine(), "end of stream");
+        server.stop();
+    }
+    
+    // tests handleWatch, covers invalid request
+    @Test
+    public void testHandleWatchInValid() throws IOException, URISyntaxException {
+        List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
+        Board board = new Board(boardList);
+        final WebServer server = new WebServer(board, 0);
+        server.start();
+        
+        final URL invalid = new URL("http://localhost:" + server.port() + "/watch/++");
         final HttpURLConnection connection = (HttpURLConnection) invalid.openConnection();
         assertEquals(404, connection.getResponseCode(), "response code");
         server.stop();

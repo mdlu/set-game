@@ -22,7 +22,7 @@ public class SimulationMain {
      */
     public static void main(String[] args) {
         final int size = 1;
-        final int players = 20;
+        final int players = 10;
         final int tries = 10;
         
         final Board board = Board.generateRandom(size, size, Set.of("A", "B"));
@@ -33,23 +33,23 @@ public class SimulationMain {
                 final Random random = new Random();
                 String playerID = String.valueOf(random.nextInt(1000));
                 board.addPlayer(playerID);
-                System.out.println(board);
+//                System.out.println(board);
                 
                 tryCounts.put(playerID, 0);
                 for (int jj = 0; jj < tries; jj++) {
                     try {
                         Square card = new Square(random.nextInt(size)+1, random.nextInt(size)+1);
-                        System.out.println(playerID + " 1 " + card.toString());
+//                        System.out.println(playerID + " 1 " + card.toString());
                         board.flipCard(card, playerID);
-                        System.out.println(playerID + " 1 " + card.toString() + " " + board.getSquareStates());
+//                        System.out.println(playerID + " 1 " + card.toString() + " " + board.getSquareStates());
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                     try {
                         Square card = new Square(random.nextInt(size)+1, random.nextInt(size)+1);
-                        System.out.println(playerID + " 2 " + card.toString());
+//                        System.out.println(playerID + " 2 " + card.toString());
                         board.flipCard(card, playerID);
-                        System.out.println(playerID + " 2 " + card.toString() + " " + board.getSquareStates());
+//                        System.out.println(playerID + " 2 " + card.toString() + " " + board.getSquareStates());
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }

@@ -34,6 +34,7 @@ public class WebServer {
     
     private final HttpServer server;
     private final Board board;
+    private final Object lock = new Object();
     
     /* Abstraction function:
      *    AF(server, board): a game of Memory Scramble serviced by server and with a current
@@ -60,6 +61,11 @@ public class WebServer {
     public WebServer(Board board, int port) throws IOException {
         this.server = HttpServer.create(new InetSocketAddress(port), 0);
         this.board = board;
+        board.addBoardListener(() -> {
+           synchronized (lock) {
+               lock.notifyAll();
+           }
+        });
         
         // handle concurrent requests with multiple threads
         server.setExecutor(Executors.newCachedThreadPool());
@@ -84,9 +90,9 @@ public class WebServer {
         HttpContext scores = server.createContext("/scores", this::handleScores);
         scores.getFilters().addAll(filters);
 
-//        // handle requests for /watch/player
-//        HttpContext watch = server.createContext("/watch/", this::handleWatch);
-//        watch.getFilters().addAll(filters);
+        // handle requests for /watch/player
+        HttpContext watch = server.createContext("/watch/", this::handleWatch);
+        watch.getFilters().addAll(filters);
         
         checkRep();
     }
@@ -310,36 +316,44 @@ public class WebServer {
         exchange.close();
     }
     
-//    private void handleWatch(HttpExchange exchange) throws IOException {
-//        // if you want to know the requested path:
-//        final String path = exchange.getRequestURI().getPath();
-//        
-//        // it will always start with the base path from server.createContext():
-//        final String base = exchange.getHttpContext().getPath();
-//        assert path.startsWith(base);
-//        
-//        final String player = path.substring(base.length());
-//        
-//        final String response;
-//        if (player.matches("\\w+")) {
-//            // if the request is valid, respond with HTTP code 200 to indicate success
-//            // - response length 0 means a response will be written
-//            // - you must call this method before calling getResponseBody()
-//            exchange.sendResponseHeaders(200, 0);
-//            response = "this need to be implemented"; 
-//        } else {
-//            // otherwise, respond with HTTP code 404 to indicate an error
-//            exchange.sendResponseHeaders(404, 0);
-//            response = "Your player name ID may only consist of alphanumeric characters.";
-//        }
-//        // write the response to the output stream using UTF-8 character encoding
-//        OutputStream body = exchange.getResponseBody();
-//        PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
-//        // println(..) will append a newline and auto-flush
-//        // - to write without a newline, use e.g. print(..) and flush()
-//        out.println(response);
-//        
-//        // if you do not close the exchange, the response will not be sent!
-//        exchange.close();
-//    }
+    private void handleWatch(HttpExchange exchange) throws IOException {
+        // if you want to know the requested path:
+        final String path = exchange.getRequestURI().getPath();
+        
+        // it will always start with the base path from server.createContext():
+        final String base = exchange.getHttpContext().getPath();
+        assert path.startsWith(base);
+        
+        final String player = path.substring(base.length());
+        
+        final String response;
+        if (player.matches("\\w+")) {
+            // if the request is valid, respond with HTTP code 200 to indicate success
+            // - response length 0 means a response will be written
+            // - you must call this method before calling getResponseBody()
+            exchange.sendResponseHeaders(200, 0);
+            synchronized (lock) {
+                try {
+                    lock.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            response = boardResponse(player);
+        } else {
+            // otherwise, respond with HTTP code 404 to indicate an error
+            exchange.sendResponseHeaders(404, 0);
+            response = "Your player name ID may only consist of alphanumeric characters.";
+        }
+        // write the response to the output stream using UTF-8 character encoding
+        OutputStream body = exchange.getResponseBody();
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
+        // println(..) will append a newline and auto-flush
+        // - to write without a newline, use e.g. print(..) and flush()
+        out.print(response);
+        out.flush();
+        
+        // if you do not close the exchange, the response will not be sent!
+        exchange.close();
+    }
 }

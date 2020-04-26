@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -86,6 +87,13 @@ public class Board {
     }
     
     
+    /** A listener for the Board. */
+    public interface BoardListener {
+        /** Called when the Board changes, as defined in the pset4 specification.
+          */
+        public void boardChanged(); 
+    }
+    
     private List<List<String>> gameBoard;
     private Map<String, Integer> scores;
     private Map<String, List<Square>> heldSquares;
@@ -93,6 +101,7 @@ public class Board {
     private Map<Square, State> squareStates;
     private Map<Square, BlockingQueue<String>> squareQueues;
     
+    private Set<BoardListener> listeners = new HashSet<>();
     public enum State {UP, DOWN, GONE};
     
     /* Abstraction function:
@@ -300,6 +309,28 @@ public class Board {
     }
     
     /**
+     * Adds a listener to the Board.
+     * @param listener called when the Board changes
+     */
+    public synchronized void addBoardListener(BoardListener listener) {
+        listeners.add(listener);
+    }
+    
+    /**
+     * Removes a listener from the Board.
+     * @param listener which will no longer be called when the Board changes
+     */
+    public synchronized void removeBoardListener(BoardListener listener) {
+        listeners.remove(listener);
+    }
+    
+    private void callListeners() {
+        for (BoardListener listener: Set.copyOf(listeners)) {
+            listener.boardChanged();
+        }
+    }
+    
+    /**
      * Returns the squares held by a palyer.
      * @param playerID the unique ID of a player
      * @return a list of squares held by that player
@@ -350,8 +381,10 @@ public class Board {
                     squareQueues.get(heldSquare).take(); // relinquish control
                 } else if (squareStates.get(card).equals(State.DOWN) | squareQueues.get(card).size() == 0) { // rule 2C
                     squareQueues.get(card).put(playerID);
-                    
-                    squareStates.put(card, State.UP);
+                    if (squareStates.get(card).equals(State.DOWN)) {
+                        squareStates.put(card, State.UP);
+                        callListeners();
+                    }
                     heldSquares.get(playerID).add(card);
                     checkMatch(playerID);
                 } else {
@@ -371,6 +404,7 @@ public class Board {
                     squareStates.put(square2, State.GONE);
                     squareQueues.get(square1).take(); // relinquish control
                     squareQueues.get(square2).take();
+                    callListeners();
                 } 
             } 
             // rule 3B
@@ -378,6 +412,7 @@ public class Board {
                 synchronized (squareQueues.get(square)) {
                     if (squareStates.get(square).equals(State.UP) && squareQueues.get(square).size() == 0) {
                         squareStates.put(square, State.DOWN);
+                        callListeners();
                     }
                 }   
             }
@@ -403,6 +438,7 @@ public class Board {
                 } else if (squareStates.get(card).equals(State.DOWN)) { // rule 1B
                     squareStates.put(card, State.UP);
                     heldSquares.get(playerID).add(card);
+                    callListeners();
                 } else { // rule 1C
                     heldSquares.get(playerID).add(card);
                 }
