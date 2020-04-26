@@ -22,8 +22,9 @@ public class SimulationMain {
      */
     public static void main(String[] args) {
         final int size = 1;
-        final int players = 10;
-        final int tries = 10;
+        final int players = 3;
+        final int tries = 3000;
+        final int idGenerator = 1000;
         
         final Board board = Board.generateRandom(size, size, Set.of("A", "B"));
         final Map<String, Integer> tryCounts = new ConcurrentHashMap<>();
@@ -31,7 +32,7 @@ public class SimulationMain {
         for (int ii = 0; ii < players; ii++) {
             new Thread(() -> {
                 final Random random = new Random();
-                String playerID = String.valueOf(random.nextInt(1000));
+                String playerID = String.valueOf(random.nextInt(idGenerator));
                 board.addPlayer(playerID);
 //                System.out.println(board);
                 

@@ -38,9 +38,6 @@ public class WebServerTest {
      *      partition on playerID given in request: valid, invalid
      */
     
-    // Manual tests
-    //   TODO (if any)
-    
     @Test
     public void testAssertionsEnabled() {
         assertThrows(AssertionError.class, () -> { assert false; },
@@ -170,14 +167,13 @@ public class WebServerTest {
     }
     
     // tests handleWatch, covers valid request
-    // variables used in test case
-    private URL valid = null;
-    private BufferedReader reader = null;
-    private InputStream input = null;
-    private String line = null;
-    
+    private URL validTest = null;
+    private BufferedReader readerTest = null;
+    private InputStream inputTest = null;
+    private String lineTest = null;
     @Test
     public void testHandleWatchValid() throws IOException, URISyntaxException, InterruptedException {
+
         List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
         Board board = new Board(boardList);
         final WebServer server = new WebServer(board, 0);
@@ -188,10 +184,10 @@ public class WebServerTest {
         new Thread(new Runnable() {
             public void run() {
                 try {
-                    valid = new URL("http://localhost:" + server.port() + "/watch/jerry");
-                    input = valid.openStream();
-                    reader = new BufferedReader(new InputStreamReader(input, UTF_8));
-                    line = reader.readLine();
+                    validTest = new URL("http://localhost:" + server.port() + "/watch/jerry");
+                    inputTest = validTest.openStream();
+                    readerTest = new BufferedReader(new InputStreamReader(inputTest, UTF_8));
+                    lineTest = readerTest.readLine();
                 } catch (MalformedURLException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
@@ -200,21 +196,21 @@ public class WebServerTest {
             }
         }).start();
         
-        Thread.sleep(2000);
-        assertEquals(null, line, "watch should be blocking");
+        Thread.sleep(1001);
+        assertEquals(null, lineTest, "watch should be blocking");
         
         new URL("http://localhost:" + server.port() + "/flip/jerry/1,2").openStream();
-        while (reader == null) { // wait for /watch to return
+        while (readerTest == null) { // wait for /watch to return
             continue;
         }
 //        assertEquals("3x2", reader.readLine(), "expected dimensions output");
-        assertEquals("up a", reader.readLine(), "expected output");
-        assertEquals("my a", reader.readLine(), "expected output");
-        assertEquals("down", reader.readLine(), "expected output");
-        assertEquals("down", reader.readLine(), "expected output");
-        assertEquals("down", reader.readLine(), "expected output");
-        assertEquals("down", reader.readLine(), "expected output");
-        assertEquals(null, reader.readLine(), "end of stream");
+        assertEquals("up a", readerTest.readLine(), "expected output");
+        assertEquals("my a", readerTest.readLine(), "expected output");
+        assertEquals("down", readerTest.readLine(), "expected output");
+        assertEquals("down", readerTest.readLine(), "expected output");
+        assertEquals("down", readerTest.readLine(), "expected output");
+        assertEquals("down", readerTest.readLine(), "expected output");
+        assertEquals(null, readerTest.readLine(), "end of stream");
         server.stop();
     }
     

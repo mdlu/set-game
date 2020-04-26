@@ -20,6 +20,7 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
+import memory.Board.State;
 import memory.web.ExceptionsFilter;
 import memory.web.HeadersFilter;
 import memory.web.LogFilter;
@@ -32,9 +33,11 @@ import memory.web.LogFilter;
  */
 public class WebServer {
     
+    private static final int ERROR_CODE = 404;
+    private static final int SUCCESS_CODE = 202;
+    
     private final HttpServer server;
     private final Board board;
-    private final Object lock = new Object();
     
     /* Abstraction function:
      *    AF(server, board): a game of Memory Scramble serviced by server and with a current
@@ -48,7 +51,11 @@ public class WebServer {
      *    all methods return immutable values or void
      * 
      * Thread safety argument:
-     *    TODO here
+     *    all fields are private and threadsafe
+     *    boardResponse uses a method guaranteed to return a consistent report of the 
+     *      current states of all squares on the Board, and which are held by the player
+     *    all handling methods can be called concurrently, since the HttpServer uses
+     *      multiple threads to handle this, and the board is safe for concurrency 
      */
     
     /**
@@ -62,8 +69,8 @@ public class WebServer {
         this.server = HttpServer.create(new InetSocketAddress(port), 0);
         this.board = board;
         board.addBoardListener(() -> {
-           synchronized (lock) {
-               lock.notifyAll();
+           synchronized (board) {
+               board.notifyAll();
            }
         });
         
@@ -133,27 +140,30 @@ public class WebServer {
      * @return the String representation
      */
     private String boardResponse(String playerID) {
-//        Board boardCopy = new Board(board); 
-        Board boardCopy = board; // TODO make copy for consistency issues
+        
+        Map<Square, Board.State> squareStates;
         List<Square> squaresHeld;
         if (board.isPlayer(playerID)) {
-            squaresHeld = boardCopy.getSquaresHeld(playerID);
+            Map<List<Square>, Map<Square, State>> heldAndStates = board.getHeldAndStates(playerID);
+            squaresHeld = heldAndStates.keySet().iterator().next();
+            squareStates = heldAndStates.values().iterator().next();
         } else {
-            squaresHeld = new ArrayList<>();
+            squareStates = board.getSquareStates();
+            squaresHeld = new ArrayList<>(); // player is not participating, holds no squares
         }
-        String response = boardCopy.getNumRows()+"x"+boardCopy.getNumCols()+"\n";
-        for (int row=1; row<=boardCopy.getNumRows(); row++) {
-            for (int col=1; col<=boardCopy.getNumCols(); col++) {
+        String response = board.getNumRows()+"x"+board.getNumCols()+"\n";
+        for (int row=1; row<=board.getNumRows(); row++) {
+            for (int col=1; col<=board.getNumCols(); col++) {
                 Square sq = new Square(row, col);
-                switch (boardCopy.getSquareState(sq)) {
+                switch (squareStates.get(sq)) {
                 case GONE:
                     response += "none\n";
                     break;
                 case UP:
                     if (squaresHeld.contains(sq)) {
-                        response += "my " + boardCopy.getSquare(sq) + "\n";
+                        response += "my " + board.getSquare(sq) + "\n";
                     } else {
-                        response += "up " + boardCopy.getSquare(sq) + "\n";
+                        response += "up " + board.getSquare(sq) + "\n";
                     }
                     break;
                 case DOWN:
@@ -189,11 +199,11 @@ public class WebServer {
             // if the request is valid, respond with HTTP code 200 to indicate success
             // - response length 0 means a response will be written
             // - you must call this method before calling getResponseBody()
-            exchange.sendResponseHeaders(200, 0);
+            exchange.sendResponseHeaders(SUCCESS_CODE, 0);
             response = boardResponse(player);
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
-            exchange.sendResponseHeaders(404, 0);
+            exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your player name ID contains non-alphanumeric characters.";
         }
         // write the response to the output stream using UTF-8 character encoding
@@ -243,18 +253,18 @@ public class WebServer {
             
             try {
                 board.flipCard(card, playerID);
-                exchange.sendResponseHeaders(200, 0);
+                exchange.sendResponseHeaders(SUCCESS_CODE, 0);
                 response = boardResponse(playerID);
             } catch (InterruptedException e) {
-                exchange.sendResponseHeaders(404, 0);
+                exchange.sendResponseHeaders(ERROR_CODE, 0);
                 response = "Your requested flip was interrupted.";
             } catch (NullPointerException npe) {
-                exchange.sendResponseHeaders(404, 0);
+                exchange.sendResponseHeaders(ERROR_CODE, 0);
                 response = "Your requested flip was not valid.";
             }
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
-            exchange.sendResponseHeaders(404, 0);
+            exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your requested flip was not valid.";
         }
         // write the response to the output stream using UTF-8 character encoding
@@ -292,7 +302,7 @@ public class WebServer {
             // if the request is valid, respond with HTTP code 200 to indicate success
             // - response length 0 means a response will be written
             // - you must call this method before calling getResponseBody()
-            exchange.sendResponseHeaders(200, 0);
+            exchange.sendResponseHeaders(SUCCESS_CODE, 0);
             Map<String, Integer> scores = board.getScores();
             String scoreString = "";
             for (String player: scores.keySet()) {
@@ -301,7 +311,7 @@ public class WebServer {
             response = scoreString;
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
-            exchange.sendResponseHeaders(404, 0);
+            exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "There should be no additional characters following /scores in the request.";
         }
         // write the response to the output stream using UTF-8 character encoding
@@ -331,10 +341,10 @@ public class WebServer {
             // if the request is valid, respond with HTTP code 200 to indicate success
             // - response length 0 means a response will be written
             // - you must call this method before calling getResponseBody()
-            exchange.sendResponseHeaders(200, 0);
-            synchronized (lock) {
+            exchange.sendResponseHeaders(SUCCESS_CODE, 0);
+            synchronized (board) {
                 try {
-                    lock.wait();
+                    board.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -342,7 +352,7 @@ public class WebServer {
             response = boardResponse(player);
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
-            exchange.sendResponseHeaders(404, 0);
+            exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your player name ID may only consist of alphanumeric characters.";
         }
         // write the response to the output stream using UTF-8 character encoding

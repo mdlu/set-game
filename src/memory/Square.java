@@ -18,6 +18,10 @@ public class Square {
      * Safety from rep exposure:
      *    all fields are private and final
      *    no mutators, all methods return immutable types
+     * 
+     * Thread safety argument:
+     *    class is threadsafe immutable
+     *    all fields are private, final, and primitives
      */
     
     /**

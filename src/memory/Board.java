@@ -48,6 +48,7 @@ public class Board {
             }
             squares.add(newRow);
         }
+        in.close();
         return new Board(squares);
     }
     
@@ -102,19 +103,20 @@ public class Board {
     private Map<Square, BlockingQueue<String>> squareQueues;
     
     private Set<BoardListener> listeners = new HashSet<>();
-    public enum State {UP, DOWN, GONE};
+    public enum State {UP, DOWN, GONE}
     
     /* Abstraction function:
-     *    AF(gameBoard, scores, heldSquares, isFirst, squareStates, squareQueues) = 
+     *    AF(gameBoard, scores, heldSquares, isFirst, squareStates, squareQueues, listeners) = 
      *      a game of Memory Scramble with the text of a card at position (row, col) on the board 
      *      found in gameBoard.get(row-1).get(col-1), the state of that card being held in squareStates.get(new Square(row, col)),
      *      a blocking queue of size 1 holding the current player holding that card being found in squareQueues.get(new Square(row, col)),
      *      and for every player with playerID playing in the game, their score is found in scores.get(playerID),
      *      the squares they currently control is in heldSauares.get(playerID), and whether their next flip will be a "first card"
-     *      (as opposed to a "second card") is held in isFirst.get(playerID)
+     *      (as opposed to a "second card") is held in isFirst.get(playerID);
+     *      all BoardListeners on the Board are held in listeners
      *    
      * Representation invariant:
-     *    all rows in gameBoard are of the same length
+     *    all rows in gameBoard are of the same length, and there is at least 1 row and 1 column
      *    scores, heldSquares, and isFirst all share the same set of keys, i.e., the set of playerIDs
      *    every List stored as a value in heldSquares has at most 2 elements
      *    every Square with row number between 1 and the number of rows on the Board, and with column number
@@ -126,7 +128,20 @@ public class Board {
      *    constructors make defensive copies of the inputs given
      * 
      * Thread safety argument:
-     *      TODO write this!!
+     *      all fields are threadsafe datatypes and contain threadsafe datatypes
+     *      almost all methods besides constructors are getter methods, which are safe due to the above
+     *      for those methods which mutate the rep:
+     *          addPlayer: lock allows only one new player to be added at a time, and it only adds new keys to the 
+     *              Maps in the rep, which does not interfere with other players
+     *          addBoardListener, removeBoardListener: require lock on the listeners Set to add/remove listeners
+     *          checkMatch: called only within flipCard when held by a lock for a square controlled 
+     *              by a player; the only possible concurrency problems arise when taking from the BlockingQueues 
+     *              for the squares they control, but they are guaranteed to be the current and only entry in the BlockingQueue
+     *          flipCard: every access to a particular square's current state and BlockingQueue is protected 
+     *              requiring the lock for that square's BlockingQueue; the only exception is the line implementing 
+     *              rule 1D, which waits when flipping a "first card" until a square's BlockingQueue is empty before 
+     *              adding to it, but this line uses a blocking and threadsafe BlockingQueue and cannot interfere with 
+     *              the performance of other threads
      */
 
     /**
@@ -155,6 +170,7 @@ public class Board {
                 squareQueues.put(new Square(r,c), new ArrayBlockingQueue<>(1));
             }
         }
+        checkRep();
     }
     
     /**
@@ -177,9 +193,33 @@ public class Board {
                 squareQueues.put(new Square(r,c), new ArrayBlockingQueue<>(1));
             }
         }
+        checkRep();
     }
     
+    /**
+     * Assert the representation invariant is true.
+     */
     private void checkRep() {
+        assert gameBoard.size() > 0;
+        assert gameBoard.get(0).size() > 0;
+        int rowLength = gameBoard.get(0).size();
+        for (int i=0; i<gameBoard.size(); i++) {
+            assert gameBoard.get(i).size() == rowLength;
+        }
+        
+        assert scores.keySet().equals(heldSquares.keySet());
+        assert heldSquares.keySet().equals(isFirst.keySet());
+        
+        for (String key: heldSquares.keySet()) {
+            assert heldSquares.get(key).size() <= 2;
+        }
+        
+        for (int r=1; r<gameBoard.size(); r++) {
+            for (int c=1; c<gameBoard.get(0).size(); c++) {
+                assert squareStates.keySet().contains(new Square(r, c));
+                assert squareQueues.keySet().contains(new Square(r, c));
+            }
+        }
         
     }
 
@@ -193,11 +233,13 @@ public class Board {
         return that instanceof Board && this.sameValue((Board) that);
     }
     
+    /**
+     * Returns true if the two Boards have the same game board layout.
+     * @param that another Board
+     * @return whether the two have the same value
+     */
     private boolean sameValue(Board that) {
         return this.gameBoard.equals(that.gameBoard);
-//                && this.scores.equals(that.scores)
-//                && this.heldSquares.equals(that.heldSquares) && this.isFirst.equals(that.isFirst)
-//                && this.squareStates.equals(that.squareStates) && this.squareQueues.equals(that.squareQueues);
     }
     
     @Override
@@ -209,6 +251,7 @@ public class Board {
                 sum += row.get(j).hashCode();
             }
         }
+        checkRep();
         return sum;
     }
     
@@ -218,13 +261,16 @@ public class Board {
      * @return true if the player was added successfully, false if the playerID has been already taken
      */
     public boolean addPlayer(String playerID) {
-        if (scores.containsKey(playerID)) {
-            return false;
+        synchronized (scores) {
+            if (scores.containsKey(playerID)) {
+                return false;
+            }
+            scores.put(playerID, 0);
+            heldSquares.put(playerID, Collections.synchronizedList(new ArrayList<>()));
+            isFirst.put(playerID, true);
+            checkRep();
+            return true;
         }
-        scores.put(playerID, 0);
-        heldSquares.put(playerID, Collections.synchronizedList(new ArrayList<>()));
-        isFirst.put(playerID, true);
-        return true;
     }
     
     /**
@@ -271,6 +317,7 @@ public class Board {
         for (int i=0; i<gameBoard.size(); i++) {
             column.add(gameBoard.get(i).get(col-1));
         }
+        checkRep();
         return column;
     }
     
@@ -312,16 +359,20 @@ public class Board {
      * Adds a listener to the Board.
      * @param listener called when the Board changes
      */
-    public synchronized void addBoardListener(BoardListener listener) {
-        listeners.add(listener);
+    public void addBoardListener(BoardListener listener) {
+        synchronized (listeners) {
+            listeners.add(listener);
+        }
     }
     
     /**
      * Removes a listener from the Board.
      * @param listener which will no longer be called when the Board changes
      */
-    public synchronized void removeBoardListener(BoardListener listener) {
-        listeners.remove(listener);
+    public void removeBoardListener(BoardListener listener) {
+        synchronized (listeners) {
+            listeners.remove(listener);
+        }
     }
     
     private void callListeners() {
@@ -366,6 +417,21 @@ public class Board {
     }
     
     /**
+     * Returns the list of squares held for the given player, and the current list of 
+     * states of all squares on the board. The two are guaranteed to agree at the time the 
+     * method is called.
+     * @param playerID the unique ID of the player
+     * @return a one-element Map with a key holding the list of squares, and the value holding
+     * the list of states of all squares
+     */
+    public Map<List<Square>, Map<Square, State>> getHeldAndStates(String playerID){
+        // lock is used throughout flipCard to ensure the player's held squares and all square states agree
+        synchronized (heldSquares) { 
+            return Map.of(getSquaresHeld(playerID), getSquareStates());
+        }
+    }
+    
+    /**
      * Performs the flipping of a card by a particular player, according to the rules given in the pset 4 instructions.
      * @param card the coordinates of the card the player wants to flip
      * @param playerID the unique of the player
@@ -379,19 +445,26 @@ public class Board {
             synchronized (squareQueues.get(card)) {
                 if (squareStates.get(card).equals(State.GONE)) { // rule 2A
                     squareQueues.get(heldSquare).take(); // relinquish control
-                } else if (squareStates.get(card).equals(State.DOWN) | squareQueues.get(card).size() == 0) { // rule 2C
-                    squareQueues.get(card).put(playerID);
-                    if (squareStates.get(card).equals(State.DOWN)) {
-                        squareStates.put(card, State.UP);
-                        callListeners();
-                    }
-                    heldSquares.get(playerID).add(card);
-                    checkMatch(playerID);
                 } else {
-                    squareQueues.get(heldSquare).take(); // rule 2B
+                    try {
+                        squareQueues.get(card).add(playerID); // nonblocking 
+                        if (squareStates.get(card).equals(State.DOWN)) { // rule 2C
+                            synchronized (heldSquares) {
+                                squareStates.put(card, State.UP);
+                                callListeners();
+                            }
+                        }
+                        synchronized (heldSquares) {
+                            heldSquares.get(playerID).add(card);
+                            checkMatch(playerID);
+                        }
+                    } catch (IllegalStateException ise) {
+                        squareQueues.get(heldSquare).take(); // rule 2B
+                    }
                 }
-                isFirst.put(playerID, true);
             }
+            
+            isFirst.put(playerID, true);
             
         } else { // flipping a first card, possibly after trying to turn a second card
             if (heldSquares.get(playerID).size() == 2) {
@@ -400,10 +473,18 @@ public class Board {
                 String card1 = getSquare(square1);
                 String card2 = getSquare(square2);
                 if (card1.equals(card2)) { // rule 3A
-                    squareStates.put(square1, State.GONE); // remove cards
-                    squareStates.put(square2, State.GONE);
-                    squareQueues.get(square1).take(); // relinquish control
-                    squareQueues.get(square2).take();
+                    synchronized (squareQueues.get(square1)) {
+                        synchronized (heldSquares) {
+                            squareStates.put(square1, State.GONE); // remove cards
+                            squareQueues.get(square1).take(); // relinquish control
+                        }
+                    }
+                    synchronized (squareQueues.get(square2)) {
+                        synchronized (heldSquares) {
+                            squareStates.put(square2, State.GONE);
+                            squareQueues.get(square2).take();
+                        }
+                    }
                     callListeners();
                 } 
             } 
@@ -411,41 +492,40 @@ public class Board {
             for (Square square: heldSquares.get(playerID)) {
                 synchronized (squareQueues.get(square)) {
                     if (squareStates.get(square).equals(State.UP) && squareQueues.get(square).size() == 0) {
-                        squareStates.put(square, State.DOWN);
-                        callListeners();
+                        synchronized (heldSquares) {
+                            squareStates.put(square, State.DOWN);
+                            callListeners();
+                        }
                     }
                 }   
             }
-            heldSquares.get(playerID).clear();
             
-            synchronized (squareStates.get(card)) { // additional lock to prevent deadlock
-                boolean wasNonEmpty = true;
-                synchronized (squareQueues.get(card)) {
-                    if (squareQueues.size() == 0) {
-                        squareQueues.get(card).put(playerID);
-                        wasNonEmpty = false;
-                    }
-                }
-                if (wasNonEmpty) {
-                    squareQueues.get(card).put(playerID); // rule 1D, blocks if held
-                }
+            synchronized (heldSquares) {
+                heldSquares.get(playerID).clear();
             }
+            
+            squareQueues.get(card).put(playerID); // rule 1D, blocks if held
             
             synchronized (squareQueues.get(card)) {
                 if (squareStates.get(card).equals(State.GONE)) { // rule 1A
                     squareQueues.get(card).take();
-                    return;
+                    return; // return immediately so isFirst is not set to false
                 } else if (squareStates.get(card).equals(State.DOWN)) { // rule 1B
-                    squareStates.put(card, State.UP);
-                    heldSquares.get(playerID).add(card);
-                    callListeners();
+                    synchronized (heldSquares) {
+                        squareStates.put(card, State.UP);
+                        heldSquares.get(playerID).add(card);
+                        callListeners();
+                    }
                 } else { // rule 1C
-                    heldSquares.get(playerID).add(card);
+                    synchronized (heldSquares) {
+                        heldSquares.get(playerID).add(card);
+                    }
                 }
             }
             
             isFirst.put(playerID, false);
         }
+        checkRep();
     }
     
     /**
@@ -470,6 +550,6 @@ public class Board {
             squareQueues.get(square1).take();
             squareQueues.get(square2).take();
         }
-        
+        checkRep();
     }
 }
