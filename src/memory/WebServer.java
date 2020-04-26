@@ -44,7 +44,6 @@ public class WebServer {
      *    
      * Safety from rep exposure:
      *    all fields are private and final
-     *    defensive copy is made in constructor
      *    all methods return immutable values or void
      * 
      * Thread safety argument:
@@ -60,7 +59,7 @@ public class WebServer {
      */
     public WebServer(Board board, int port) throws IOException {
         this.server = HttpServer.create(new InetSocketAddress(port), 0);
-        this.board = new Board(board);
+        this.board = board;
         
         // handle concurrent requests with multiple threads
         server.setExecutor(Executors.newCachedThreadPool());

@@ -348,14 +348,21 @@ public class Board {
             synchronized (squareQueues.get(card)) {
                 if (squareStates.get(card).equals(State.GONE)) { // rule 2A
                     squareQueues.get(heldSquare).take(); // relinquish control
-                } else if (squareStates.get(card).equals(State.DOWN) | squareQueues.get(card).size() == 0) { // rule 2C
+                } else if (squareStates.get(card).equals(State.DOWN)) { // rule 2C
                     squareQueues.get(card).put(playerID);
                     
                     squareStates.put(card, State.UP);
                     heldSquares.get(playerID).add(card);
                     checkMatch(playerID);
                 } else {
-                    squareQueues.get(heldSquare).take(); // rule 2B
+                    // potential concurrency issue!
+                    if (squareQueues.get(card).size() != 0) { // rule 2B
+                        squareQueues.get(heldSquare).take();
+                    } else {
+                        squareQueues.get(card).put(playerID);
+                        heldSquares.get(playerID).add(card);
+                        checkMatch(playerID);
+                    }
                 }
                 isFirst.put(playerID, true);
             }
@@ -374,6 +381,7 @@ public class Board {
                 } 
             } 
             // rule 3B
+            // potential concurrency issue
             for (Square square: heldSquares.get(playerID)) {
                 synchronized (squareQueues.get(square)) {
                     if (squareStates.get(square).equals(State.UP) && squareQueues.get(square).size() == 0) {
@@ -383,7 +391,7 @@ public class Board {
             }
             heldSquares.get(playerID).clear();
             
-            synchronized (squareStates.get(card)) { // additional lock to prevent deadlock
+            synchronized (squareStates.get(card)) {
                 boolean wasNonEmpty = true;
                 synchronized (squareQueues.get(card)) {
                     if (squareQueues.size() == 0) {
@@ -392,20 +400,25 @@ public class Board {
                     }
                 }
                 if (wasNonEmpty) {
-                    squareQueues.get(card).put(playerID); // rule 1D, blocks if held
+                    squareQueues.get(card).put(playerID);
                 }
+//                if (squareQueues.size() == 1) {
+//                    squareQueues.get(card).put(playerID); // rule 1D, blocks if held
+//                } else {
+//                    synchronized (squareQueues.get(card)) {
+//                        squareQueues.get(card).put(playerID);
+//                    }
+//                }
             }
             
-            synchronized (squareQueues.get(card)) {
-                if (squareStates.get(card).equals(State.GONE)) { // rule 1A
-                    squareQueues.get(card).take();
-                    return;
-                } else if (squareStates.get(card).equals(State.DOWN)) { // rule 1B
-                    squareStates.put(card, State.UP);
-                    heldSquares.get(playerID).add(card);
-                } else { // rule 1C
-                    heldSquares.get(playerID).add(card);
-                }
+            if (squareStates.get(card).equals(State.GONE)) { // rule 1A
+                squareQueues.get(card).take();
+                return;
+            } else if (squareStates.get(card).equals(State.DOWN)) { // rule 1B
+                squareStates.put(card, State.UP);
+                heldSquares.get(playerID).add(card);
+            } else { // rule 1C
+                heldSquares.get(playerID).add(card);
             }
             
             isFirst.put(playerID, false);
