@@ -196,7 +196,8 @@ public class WebServer {
         PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
         // println(..) will append a newline and auto-flush
         // - to write without a newline, use e.g. print(..) and flush()
-        out.println(response);
+        out.print(response);
+        out.flush();
         
         // if you do not close the exchange, the response will not be sent!
         exchange.close();
@@ -256,7 +257,8 @@ public class WebServer {
         PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
         // println(..) will append a newline and auto-flush
         // - to write without a newline, use e.g. print(..) and flush()
-        out.println(response);
+        out.print(response);
+        out.flush();
         
         // if you do not close the exchange, the response will not be sent!
         exchange.close();
@@ -302,7 +304,8 @@ public class WebServer {
         PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
         // println(..) will append a newline and auto-flush
         // - to write without a newline, use e.g. print(..) and flush()
-        out.println(response);
+        out.print(response);
+        out.flush();
         
         // if you do not close the exchange, the response will not be sent!
         exchange.close();

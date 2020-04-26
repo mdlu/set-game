@@ -69,7 +69,6 @@ public class WebServerTest {
         assertEquals("up a", reader.readLine(), "expected output");
         assertEquals("down", reader.readLine(), "expected output");
         assertEquals("down", reader.readLine(), "expected output");
-        assertEquals("", reader.readLine(), "expected output");
         assertEquals(null, reader.readLine(), "end of stream");
         server.stop();
     }
@@ -110,7 +109,6 @@ public class WebServerTest {
         assertEquals("down", reader.readLine(), "expected output");
         assertEquals("down", reader.readLine(), "expected output");
         assertEquals("down", reader.readLine(), "expected output");
-        assertEquals("", reader.readLine(), "expected output");
         assertEquals(null, reader.readLine(), "end of stream");
         server.stop();
     }
