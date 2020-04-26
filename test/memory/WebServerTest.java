@@ -6,6 +6,7 @@ package memory;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,16 +15,25 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 /**
- * TODO
+ * Tests for the WebServer datatype.
  */
 public class WebServerTest {
     
-    // Testing strategy
-    //   TODO
+    /*
+     * Testing strategy
+     *    handleLook:
+     *      partition on playerID given in request: valid, invalid
+     *    handleFlip: 
+     *      partition on the request: valid, invalid
+     *    handleScores: 
+     *      partition on the request: valid, invalid
+     */
     
     // Manual tests
     //   TODO (if any)
@@ -34,43 +44,128 @@ public class WebServerTest {
                 "make sure assertions are enabled with VM argument '-ea'");
     }
     
+    
+    // tests handleLook, covers valid playerID
     @Test
-    public void testHelloValid() throws IOException, URISyntaxException {
-        // Warning! This test is not legal because it provides a null board!
-        // TODO You should revise or remove this test
-        // TODO You should also avoid duplicating similar code in many tests
-        final WebServer server = new WebServer(null, 0);
+    public void testHandleLookValid() throws IOException, URISyntaxException {
+        List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
+        Board board = new Board(boardList);
+        final WebServer server = new WebServer(board, 0);
         server.start();
         
-        final URL valid = new URL("http://localhost:" + server.port() + "/hello/w0rld");
+        new URL("http://localhost:" + server.port() + "/flip/tom/1,1").openStream(); // will be displayed as none
+        new URL("http://localhost:" + server.port() + "/flip/tom/1,2").openStream(); // will be displayed as none 
+        new URL("http://localhost:" + server.port() + "/flip/tom/2,1").openStream(); // will be displayed as "my b"
+        new URL("http://localhost:" + server.port() + "/flip/jerry/2,2").openStream(); // will be displayed as "up a"
         
-        // in this test, we will just assert correctness of the server's output
+        final URL valid = new URL("http://localhost:" + server.port() + "/look/tom");
+        
         final InputStream input = valid.openStream();
         final BufferedReader reader = new BufferedReader(new InputStreamReader(input, UTF_8));
-        assertEquals("Hello, w0rld!", reader.readLine(), "greeting");
+        assertEquals("3x2", reader.readLine(), "expected dimensions output");
+        assertEquals("none", reader.readLine(), "expected output");
+        assertEquals("none", reader.readLine(), "expected output");
+        assertEquals("my b", reader.readLine(), "expected output");
+        assertEquals("up a", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals("", reader.readLine(), "expected output");
         assertEquals(null, reader.readLine(), "end of stream");
         server.stop();
     }
     
+    // tests handleLook, covers invalid playerID
     @Test
-    public void testHelloInvalid() throws IOException, URISyntaxException {
-        // Warning! This test is not legal because it provides a null board!
-        // TODO You should revise or remove this test
-        // TODO You should also avoid duplicating similar code in many tests
-        final WebServer server = new WebServer(null, 0);
+    public void testHandleLookInvalid() throws IOException, URISyntaxException {
+        List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
+        Board board = new Board(boardList);
+        final WebServer server = new WebServer(board, 0);
         server.start();
         
-        final URL invalid = new URL("http://localhost:" + server.port() + "/hello/world!");
-        
-        // in this test, we will just assert correctness of the response code
-        // unfortunately, an unsafe cast is required here to go from general
-        //   URLConnection to the HTTP-specific HttpURLConnection that will
-        //   always be returned when we connect to a "http://" URL
+        final URL invalid = new URL("http://localhost:" + server.port() + "/look/az?");
         final HttpURLConnection connection = (HttpURLConnection) invalid.openConnection();
         assertEquals(404, connection.getResponseCode(), "response code");
         server.stop();
     }
     
-    // TODO tests
+    // tests handleFlip, covers valid playerID
+    @Test
+    public void testHandleFlipValid() throws IOException, URISyntaxException {
+        List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
+        Board board = new Board(boardList);
+        final WebServer server = new WebServer(board, 0);
+        server.start();
+        
+        new URL("http://localhost:" + server.port() + "/flip/tom/1,1").openStream(); // will be displayed as none
+        new URL("http://localhost:" + server.port() + "/flip/tom/1,2").openStream(); // will be displayed as none
+        
+        final URL valid = new URL("http://localhost:" + server.port() + "/flip/tom/2,1"); // will be displayed as "my b"
+        
+        final InputStream input = valid.openStream();
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(input, UTF_8));
+        assertEquals("3x2", reader.readLine(), "expected dimensions output");
+        assertEquals("none", reader.readLine(), "expected output");
+        assertEquals("none", reader.readLine(), "expected output");
+        assertEquals("my b", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals("down", reader.readLine(), "expected output");
+        assertEquals("", reader.readLine(), "expected output");
+        assertEquals(null, reader.readLine(), "end of stream");
+        server.stop();
+    }
+    
+    // tests handleFlip, covers invalid playerID
+    @Test
+    public void testHandleFlipInValid() throws IOException, URISyntaxException {
+        List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
+        Board board = new Board(boardList);
+        final WebServer server = new WebServer(board, 0);
+        server.start();
+        
+        final URL invalid = new URL("http://localhost:" + server.port() + "/flip/jerry/17");
+        final HttpURLConnection connection = (HttpURLConnection) invalid.openConnection();
+        assertEquals(404, connection.getResponseCode(), "response code");
+        server.stop();
+    }
+    
+    // tests handleScores, covers valid request
+    @Test
+    public void testHandleScoresValid() throws IOException, URISyntaxException {
+        List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
+        Board board = new Board(boardList);
+        final WebServer server = new WebServer(board, 0);
+        server.start();
+        
+        new URL("http://localhost:" + server.port() + "/flip/tom/1,1").openStream(); 
+        new URL("http://localhost:" + server.port() + "/flip/tom/1,2").openStream(); 
+        new URL("http://localhost:" + server.port() + "/flip/jerry/2,2").openStream(); 
+        
+        final URL valid = new URL("http://localhost:" + server.port() + "/scores"); 
+        
+        final InputStream input = valid.openStream();
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(input, UTF_8));
+        List<String> responses = new ArrayList<>();
+        responses.add(reader.readLine());
+        responses.add(reader.readLine());
+        assertTrue(responses.contains("tom 1"), "expected tom to have scored 1");
+        assertTrue(responses.contains("jerry 0"), "expected jerry to have scored 0");
+        
+        server.stop();
+    }
+    
+    // tests handleScores, covers invalid request
+    @Test
+    public void testHandleScoresInValid() throws IOException, URISyntaxException {
+        List<List<String>> boardList = List.of(List.of("a", "a"), List.of("b", "a"), List.of("b", "b"));
+        Board board = new Board(boardList);
+        final WebServer server = new WebServer(board, 0);
+        server.start();
+        
+        final URL invalid = new URL("http://localhost:" + server.port() + "/scores/extraneous");
+        final HttpURLConnection connection = (HttpURLConnection) invalid.openConnection();
+        assertEquals(404, connection.getResponseCode(), "response code");
+        server.stop();
+    }
     
 }

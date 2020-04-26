@@ -19,8 +19,8 @@ public class SimulationMain {
      * @param args unused
      */
     public static void main(String[] args) {
-        final int size = 10;
-        final int players = 1;
+        final int size = 3;
+        final int players = 2;
         final int tries = 10;
         
         final Board board = Board.generateRandom(size, size, Set.of("A", "B"));
@@ -28,15 +28,27 @@ public class SimulationMain {
         for (int ii = 0; ii < players; ii++) {
             new Thread(() -> {
                 final Random random = new Random();
-                // TODO set up player ii on the board if necessary
+                String playerID = String.valueOf(random.nextInt(100));
+                board.addPlayer(playerID);
+                System.out.println(board);
                 
                 for (int jj = 0; jj < tries; jj++) {
-                    // TODO try to flip over a first card at (random.nextInt(size), random.nextInt(size))
-                    //      which might block until this player can control that card
-                    
-                    // TODO and if that succeeded,
-                    //      try to flip over a second card at (random.nextInt(size), random.nextInt(size))
-                    
+                    try {
+                        Square card = new Square(random.nextInt(size)+1, random.nextInt(size)+1);
+                        System.out.println(playerID + card.toString());
+                        board.flipCard(card, playerID);
+                        System.out.println(board.getSquareStates());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        Square card = new Square(random.nextInt(size)+1, random.nextInt(size)+1);
+                        System.out.println(playerID + card.toString());
+                        board.flipCard(card, playerID);
+                        System.out.println(board.getSquareStates());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }).start();
         }
