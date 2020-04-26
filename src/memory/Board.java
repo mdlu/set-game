@@ -477,15 +477,16 @@ public class Board {
                         synchronized (heldSquares) {
                             squareStates.put(square1, State.GONE); // remove cards
                             squareQueues.get(square1).take(); // relinquish control
+                            callListeners();
                         }
                     }
                     synchronized (squareQueues.get(square2)) {
                         synchronized (heldSquares) {
                             squareStates.put(square2, State.GONE);
                             squareQueues.get(square2).take();
+                            callListeners();
                         }
                     }
-                    callListeners();
                 } 
             } 
             // rule 3B
