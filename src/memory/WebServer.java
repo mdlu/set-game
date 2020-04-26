@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -129,7 +130,12 @@ public class WebServer {
     private String boardResponse(String playerID) {
 //        Board boardCopy = new Board(board); 
         Board boardCopy = board; // TODO make copy for consistency issues
-        List<Square> squaresHeld = boardCopy.getSquaresHeld(playerID);
+        List<Square> squaresHeld;
+        if (board.isPlayer(playerID)) {
+            squaresHeld = boardCopy.getSquaresHeld(playerID);
+        } else {
+            squaresHeld = new ArrayList<>();
+        }
         String response = boardCopy.getNumRows()+"x"+boardCopy.getNumCols()+"\n";
         for (int row=1; row<=boardCopy.getNumRows(); row++) {
             for (int col=1; col<=boardCopy.getNumCols(); col++) {
@@ -158,9 +164,8 @@ public class WebServer {
     
     /**
      * Handles the /look/player route. Sends a response showing the board, formatted as described 
-     * in the grammar in the pset4 instructions, or reports "Your player name ID contains non-alphanumeric characters, 
-     * or you have not participated yet in this game." if the playerID is not alphanumeric, or the player has not flipped
-     * a card in this game yet.
+     * in the grammar in the pset4 instructions, or reports "Your player name ID contains non-alphanumeric characters." 
+     * if the playerID is not alphanumeric.
      * @param exchange the HttpExchange used
      * @throws IOException
      */
@@ -175,7 +180,7 @@ public class WebServer {
         final String player = path.substring(base.length());
         
         final String response;
-        if (player.matches("\\w+") && board.isPlayer(player)) {
+        if (player.matches("\\w+")) {
             // if the request is valid, respond with HTTP code 200 to indicate success
             // - response length 0 means a response will be written
             // - you must call this method before calling getResponseBody()
@@ -184,7 +189,7 @@ public class WebServer {
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(404, 0);
-            response = "Your player name ID contains non-alphanumeric characters, or you have not participated yet in this game.";
+            response = "Your player name ID contains non-alphanumeric characters.";
         }
         // write the response to the output stream using UTF-8 character encoding
         OutputStream body = exchange.getResponseBody();

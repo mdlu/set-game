@@ -82,7 +82,7 @@ public class WebServerTest {
         final WebServer server = new WebServer(board, 0);
         server.start();
         
-        final URL invalid = new URL("http://localhost:" + server.port() + "/look/az?");
+        final URL invalid = new URL("http://localhost:" + server.port() + "/look/++");
         final HttpURLConnection connection = (HttpURLConnection) invalid.openConnection();
         assertEquals(404, connection.getResponseCode(), "response code");
         server.stop();
