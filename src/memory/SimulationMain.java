@@ -21,9 +21,9 @@ public class SimulationMain {
      * @param args unused
      */
     public static void main(String[] args) {
-        final int size = 1;
-        final int players = 3;
-        final int tries = 3000;
+        final int size = 4;
+        final int players = 30;
+        final int tries = 30;
         final int idGenerator = 1000;
         
         final Board board = Board.generateRandom(size, size, Set.of("A", "B"));

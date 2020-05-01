@@ -117,7 +117,6 @@ public class Board {
      *    
      * Representation invariant:
      *    all rows in gameBoard are of the same length, and there is at least 1 row and 1 column
-     *    scores, heldSquares, and isFirst all share the same set of keys, i.e., the set of playerIDs
      *    every List stored as a value in heldSquares has at most 2 elements
      *    every Square with row number between 1 and the number of rows on the Board, and with column number
      *      between 1 and the number of columns on the Board, must be present as a key in squareStates and squareQeueus
@@ -206,9 +205,6 @@ public class Board {
         for (int i=0; i<gameBoard.size(); i++) {
             assert gameBoard.get(i).size() == rowLength;
         }
-        
-        assert scores.keySet().equals(heldSquares.keySet());
-        assert heldSquares.keySet().equals(isFirst.keySet());
         
         for (String key: heldSquares.keySet()) {
             assert heldSquares.get(key).size() <= 2;
