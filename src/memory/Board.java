@@ -430,9 +430,8 @@ public class Board {
     public Map<List<Square>, Map<Square, State>> getControlledAndStates(String playerID){
         // lock is used throughout flipCard to ensure the player's held squares, queues, and all square states agree
         synchronized (heldSquares) { 
-            List<Square> squaresHeld = getSquaresHeld(playerID);
             List<Square> squaresControlled = new ArrayList<>();
-            for (Square sq: squaresHeld) {
+            for (Square sq: squareQueues.keySet()) {
                 if (getController(sq) != null && getController(sq).equals(playerID)) {
                     squaresControlled.add(sq);
                 }
