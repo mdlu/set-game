@@ -34,7 +34,7 @@ import memory.web.LogFilter;
 public class WebServer {
     
     private static final int ERROR_CODE = 404;
-    private static final int SUCCESS_CODE = 202;
+    private static final int SUCCESS_CODE = 200;
     
     private final HttpServer server;
     private final Board board;
@@ -144,7 +144,7 @@ public class WebServer {
         Map<Square, Board.State> squareStates;
         List<Square> squaresHeld;
         if (board.isPlayer(playerID)) {
-            Map<List<Square>, Map<Square, State>> heldAndStates = board.getHeldAndStates(playerID);
+            Map<List<Square>, Map<Square, State>> heldAndStates = board.getControlledAndStates(playerID);
             squaresHeld = heldAndStates.keySet().iterator().next();
             squareStates = heldAndStates.values().iterator().next();
         } else {

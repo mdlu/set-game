@@ -44,16 +44,16 @@ public class BoardTest {
     // test parseFromFile, covers perfect.txt
     @Test
     public void testPerfectBoard() throws IOException {
-        Board board = Board.parseFromFile("boards/perfect.txt");
-        List<List<String>> expected = List.of(List.of("🦄","🦄","🌈"),List.of("🌈","🌈","🦄"),List.of("🌈","🦄","🌈"));
+        final Board board = Board.parseFromFile("boards/perfect.txt");
+        final List<List<String>> expected = List.of(List.of("🦄","🦄","🌈"),List.of("🌈","🌈","🦄"),List.of("🌈","🦄","🌈"));
         assertEquals(new Board(expected), board, "expected properly parsed board from perfect.txt");
     }
     
     // test parseFromFile, covers zoom.txt
     @Test
     public void testZoomBoard() throws IOException {
-        Board board = Board.parseFromFile("boards/zoom.txt");
-        List<List<String>> expected = List.of(List.of("🚚","🏎","🚜","🚂","🚲"), List.of("🚜","🚂","🚲","🚚","🏎"), List.of("🚲","🚚","🏎","🚜","🚂"),
+        final Board board = Board.parseFromFile("boards/zoom.txt");
+        final List<List<String>> expected = List.of(List.of("🚚","🏎","🚜","🚂","🚲"), List.of("🚜","🚂","🚲","🚚","🏎"), List.of("🚲","🚚","🏎","🚜","🚂"),
                 List.of("🏎","🚜","🚂","🚲","🚚"), List.of("🚂","🚲","🚚","🏎","🚜"));
         assertEquals(new Board(expected), board, "expected properly parsed board from zoom.txt");
     }

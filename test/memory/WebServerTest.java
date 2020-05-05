@@ -60,6 +60,9 @@ public class WebServerTest {
         
         final URL valid = new URL("http://localhost:" + server.port() + "/look/tom");
         
+        final HttpURLConnection connection = (HttpURLConnection) valid.openConnection();
+        assertEquals(200, connection.getResponseCode(), "response code");
+        
         final InputStream input = valid.openStream();
         final BufferedReader reader = new BufferedReader(new InputStreamReader(input, UTF_8));
         assertEquals("3x2", reader.readLine(), "expected dimensions output");
@@ -141,6 +144,9 @@ public class WebServerTest {
         
         final URL valid = new URL("http://localhost:" + server.port() + "/scores"); 
         
+        final HttpURLConnection connection = (HttpURLConnection) valid.openConnection();
+        assertEquals(200, connection.getResponseCode(), "response code");
+        
         final InputStream input = valid.openStream();
         final BufferedReader reader = new BufferedReader(new InputStreamReader(input, UTF_8));
         List<String> responses = new ArrayList<>();
@@ -200,6 +206,7 @@ public class WebServerTest {
         assertEquals(null, lineTest, "watch should be blocking");
         
         new URL("http://localhost:" + server.port() + "/flip/jerry/1,2").openStream();
+        
         while (readerTest == null) { // wait for /watch to return
             continue;
         }

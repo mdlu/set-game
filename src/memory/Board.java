@@ -107,7 +107,8 @@ public class Board {
     
     /* Abstraction function:
      *    AF(gameBoard, scores, heldSquares, isFirst, squareStates, squareQueues, listeners) = 
-     *      a game of Memory Scramble with the text of a card at position (row, col) on the board 
+     *      a game of Memory Scramble with dimensions gameBoard.size() by gameBoard.get(0).size(),
+     *      with the text of a card at position (row, col) on the board 
      *      found in gameBoard.get(row-1).get(col-1), the state of that card being held in squareStates.get(new Square(row, col)),
      *      a blocking queue of size 1 holding the current player holding that card being found in squareQueues.get(new Square(row, col)),
      *      and for every player with playerID playing in the game, their score is found in scores.get(playerID),
@@ -123,8 +124,10 @@ public class Board {
      * 
      * Safety from rep exposure:
      *    all fields are private
-     *    all getter methods return immutable values or defensive copies
-     *    constructors make defensive copies of the inputs given
+     *    all getter methods return immutable values (String, State, int) or explicitly make a defensive copy of 
+     *      a mutable value before returning it
+     *    constructors make defensive copies of the inputs given; parseFromFile and generateRandom both use the first constructor
+     *      taking in a list of rows of card texts, which explicitly makes a copy of each row before inserting it into the Board
      * 
      * Thread safety argument:
      *      all fields are threadsafe datatypes and contain threadsafe datatypes
@@ -230,12 +233,16 @@ public class Board {
     }
     
     /**
-     * Returns true if the two Boards have the same game board layout.
+     * Returns true if the two Boards have the same values in all fields except queues and listeners.
      * @param that another Board
      * @return whether the two have the same value
      */
     private boolean sameValue(Board that) {
-        return this.gameBoard.equals(that.gameBoard);
+        return this.gameBoard.equals(that.gameBoard) 
+                && this.squareStates.equals(that.squareStates)
+                && this.scores.equals(that.scores)
+                && this.heldSquares.equals(that.heldSquares)
+                && this.isFirst.equals(that.isFirst);
     }
     
     @Override
@@ -420,10 +427,17 @@ public class Board {
      * @return a one-element Map with a key holding the list of squares, and the value holding
      * the list of states of all squares
      */
-    public Map<List<Square>, Map<Square, State>> getHeldAndStates(String playerID){
-        // lock is used throughout flipCard to ensure the player's held squares and all square states agree
+    public Map<List<Square>, Map<Square, State>> getControlledAndStates(String playerID){
+        // lock is used throughout flipCard to ensure the player's held squares, queues, and all square states agree
         synchronized (heldSquares) { 
-            return Map.of(getSquaresHeld(playerID), getSquareStates());
+            List<Square> squaresHeld = getSquaresHeld(playerID);
+            List<Square> squaresControlled = new ArrayList<>();
+            for (Square sq: squaresHeld) {
+                if (getController(sq) != null && getController(sq).equals(playerID)) {
+                    squaresControlled.add(sq);
+                }
+            }
+            return Map.of(squaresControlled, getSquareStates());
         }
     }
     
@@ -436,91 +450,80 @@ public class Board {
     public void flipCard(Square card, String playerID) throws InterruptedException {
         
         if (!isFirst.get(playerID)) {
-            Square heldSquare = heldSquares.get(playerID).get(0);
-            
-            synchronized (squareQueues.get(card)) {
-                if (squareStates.get(card).equals(State.GONE)) { // rule 2A
-                    squareQueues.get(heldSquare).take(); // relinquish control
-                } else {
-                    try {
-                        squareQueues.get(card).add(playerID); // nonblocking 
-                        if (squareStates.get(card).equals(State.DOWN)) { // rule 2C
-                            synchronized (heldSquares) {
+            synchronized (heldSquares) {
+                Square heldSquare = heldSquares.get(playerID).get(0);
+                
+                synchronized (squareQueues.get(card)) {
+                    if (squareStates.get(card).equals(State.GONE)) { // rule 2A
+                        squareQueues.get(heldSquare).take(); // relinquish control
+                    } else {
+                        try {
+                            squareQueues.get(card).add(playerID); // nonblocking 
+                            if (squareStates.get(card).equals(State.DOWN)) { // rule 2C
                                 squareStates.put(card, State.UP);
                                 callListeners();
                             }
-                        }
-                        synchronized (heldSquares) {
                             heldSquares.get(playerID).add(card);
                             checkMatch(playerID);
+                        } catch (IllegalStateException ise) {
+                            squareQueues.get(heldSquare).take(); // rule 2B
                         }
-                    } catch (IllegalStateException ise) {
-                        squareQueues.get(heldSquare).take(); // rule 2B
                     }
                 }
+                
+                isFirst.put(playerID, true);
             }
             
-            isFirst.put(playerID, true);
-            
         } else { // flipping a first card, possibly after trying to turn a second card
-            if (heldSquares.get(playerID).size() == 2) {
-                Square square1 = heldSquares.get(playerID).get(0);
-                Square square2 = heldSquares.get(playerID).get(1);
-                String card1 = getSquare(square1);
-                String card2 = getSquare(square2);
-                if (card1.equals(card2)) { // rule 3A
-                    synchronized (squareQueues.get(square1)) {
-                        synchronized (heldSquares) {
+            synchronized (heldSquares) {
+                if (heldSquares.get(playerID).size() == 2) {
+                    Square square1 = heldSquares.get(playerID).get(0);
+                    Square square2 = heldSquares.get(playerID).get(1);
+                    String card1 = getSquare(square1);
+                    String card2 = getSquare(square2);
+                    if (card1.equals(card2)) { // rule 3A
+                        synchronized (squareQueues.get(square1)) {
                             squareStates.put(square1, State.GONE); // remove cards
                             squareQueues.get(square1).take(); // relinquish control
                             callListeners();
                         }
-                    }
-                    synchronized (squareQueues.get(square2)) {
-                        synchronized (heldSquares) {
+                        synchronized (squareQueues.get(square2)) {
                             squareStates.put(square2, State.GONE);
                             squareQueues.get(square2).take();
                             callListeners();
                         }
                     }
                 } 
-            } 
-            // rule 3B
-            for (Square square: heldSquares.get(playerID)) {
-                synchronized (squareQueues.get(square)) {
-                    if (squareStates.get(square).equals(State.UP) && squareQueues.get(square).size() == 0) {
-                        synchronized (heldSquares) {
+                // rule 3B
+                for (Square square: heldSquares.get(playerID)) {
+                    synchronized (squareQueues.get(square)) {
+                        if (squareStates.get(square).equals(State.UP) && squareQueues.get(square).size() == 0) {
                             squareStates.put(square, State.DOWN);
                             callListeners();
                         }
-                    }
-                }   
-            }
-            
-            synchronized (heldSquares) {
+                    }   
+                }
                 heldSquares.get(playerID).clear();
             }
             
             squareQueues.get(card).put(playerID); // rule 1D, blocks if held
             
-            synchronized (squareQueues.get(card)) {
-                if (squareStates.get(card).equals(State.GONE)) { // rule 1A
-                    squareQueues.get(card).take();
-                    return; // return immediately so isFirst is not set to false
-                } else if (squareStates.get(card).equals(State.DOWN)) { // rule 1B
-                    synchronized (heldSquares) {
+            synchronized (heldSquares) {
+                synchronized (squareQueues.get(card)) {
+                    if (squareStates.get(card).equals(State.GONE)) { // rule 1A
+                        squareQueues.get(card).take();
+                        return; // return immediately so isFirst is not set to false
+                    } else if (squareStates.get(card).equals(State.DOWN)) { // rule 1B
                         squareStates.put(card, State.UP);
                         heldSquares.get(playerID).add(card);
                         callListeners();
-                    }
-                } else { // rule 1C
-                    synchronized (heldSquares) {
+                    } else { // rule 1C
                         heldSquares.get(playerID).add(card);
                     }
                 }
+                
+                isFirst.put(playerID, false);
             }
-            
-            isFirst.put(playerID, false);
         }
         checkRep();
     }
