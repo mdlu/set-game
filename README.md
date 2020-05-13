@@ -1,4 +1,10 @@
 ### Set
+Basic Use:
+- run with "java -ea -cp bin memory.ServerMain 8080 4", where 8008 is the port and 4 is the number of attributes on a card (only supports 4 right now)
+- /look/player route to see the current board
+- /declare/player for a player to claim they have a set, giving them rights to pick cards
+- /pick/player/row,col for a player to pick a card on the board (zero-indexed)
+- /scores to see current scores
 
 Rules: 
 - first person to click a card blocks other players until they have clicked 3 cards, player has a certain time limit to complete their set (something short, like 3sec?)
