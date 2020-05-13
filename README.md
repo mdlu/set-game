@@ -1,9 +1,9 @@
-### Memory Scramble or Possibly Set
+### Set
 
 Rules: 
 - first person to click a card blocks other players until they have clicked 3 cards, player has a certain time limit to complete their set (something short, like 3sec?)
 - some sort of penalty if the 3 cards are not a set, to discourage random clicking
-- mechanism for adding 3 cards if nobody can find a set, perhaps require everyone to vote to agree (consider: odds of there not being a set in 18 cards? 21 cards? and adjusting game/UI accordingly), also some sort of time limit so someone can't say no forever
+- mechanism for adding 3 cards if nobody can find a set, perhaps require everyone to vote to agree (consider: odds of there not being a set in 15 cards? 18 cards? 21 cards? and adjusting game/UI accordingly), also some sort of time limit so someone can't say no forever
 
 Thoughts:
 - implementing some sort of hint mechanism? (if people can't find a Set)
