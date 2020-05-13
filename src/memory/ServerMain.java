@@ -6,13 +6,11 @@ package memory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -65,17 +63,18 @@ public class ServerMain {
         }
         
         if (arguments.size() == 1) {
-            board = Board.parseFromFile(arguments.remove());
+            board = Board.generateRandom(Integer.parseInt(arguments.remove()));
         } else if (arguments.size() > 2) {
-            final int rows, columns;
-            try {
-                rows = Integer.parseInt(arguments.remove());
-                columns = Integer.parseInt(arguments.remove());
-            } catch (NumberFormatException nfe) {
-                throw new IllegalArgumentException("invalid size", nfe);
-            }
-            final Set<String> cards = new HashSet<>(parseCharacterCodes(arguments));
-            board = Board.generateRandom(rows, columns, cards);
+            throw new IllegalArgumentException("broken"); // TODO handle this?
+//            final int rows, columns;
+//            try {
+//                rows = Integer.parseInt(arguments.remove());
+//                columns = Integer.parseInt(arguments.remove());
+//            } catch (NumberFormatException nfe) {
+//                throw new IllegalArgumentException("invalid size", nfe);
+//            }
+//            final Set<String> cards = new HashSet<>(parseCharacterCodes(arguments));
+//            board = Board.generateRandom(rows, columns, cards);
         } else {
             throw new IllegalArgumentException("expected FILENAME or ROWS COLUMNS CARD...");
         }
@@ -87,17 +86,17 @@ public class ServerMain {
      * @param characterCodes a collection of character codes as hexadecimal strings
      * @return a list of strings containing those characters
      */
-    private static List<String> parseCharacterCodes(Collection<String> characterCodes) {
-        try {
-            return characterCodes.stream()
-                    .map(code -> Integer.parseInt(code, Character.SIZE))
-                    .peek(code -> { if (code <= ' ') throw new IllegalCharacterException(code); })
-                    .map(code -> new String(new int[] { code }, 0, 1))
-                    .collect(Collectors.toList());
-        } catch (IllegalArgumentException iae) {
-            throw new IllegalArgumentException("invalid character code", iae);
-        }
-    }
+//    private static List<String> parseCharacterCodes(Collection<String> characterCodes) {
+//        try {
+//            return characterCodes.stream()
+//                    .map(code -> Integer.parseInt(code, Character.SIZE))
+//                    .peek(code -> { if (code <= ' ') throw new IllegalCharacterException(code); })
+//                    .map(code -> new String(new int[] { code }, 0, 1))
+//                    .collect(Collectors.toList());
+//        } catch (IllegalArgumentException iae) {
+//            throw new IllegalArgumentException("invalid character code", iae);
+//        }
+//    }
     
     static class IllegalCharacterException extends IllegalArgumentException {
         private IllegalCharacterException(Integer codePoint) {

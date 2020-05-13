@@ -3,27 +3,19 @@
  */
 package memory;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ADT representing a Memory Scramble game board.
+ * ADT representing a Set game board.
  * Mutable and threadsafe.
- * 
- * <p>PS4 instructions: the specifications of static methods
- * {@link #parseFromFile(String)} and {@link #generateRandom(int, int, Set)} are
- * required.
  */
 public class Board {
     
@@ -73,7 +65,6 @@ public class Board {
         }
         
         Collections.shuffle(cards);
-        
         return new Board(cards);
     }
     
@@ -87,11 +78,12 @@ public class Board {
     
     private List<List<Card>> gameBoard;
     private Map<String, Integer> scores;
-    private Map<Square, State> squareStates;
     private List<Card> cardsRemaining;
     
+    private String activePlayer;
+    private List<Square> squaresHeld;
+    
     private Set<BoardListener> listeners = new HashSet<>();
-    public enum State {UP, DOWN, GONE}
     
     /* Abstraction function:
      *    AF(gameBoard, scores, heldSquares, isFirst, squareStates, squareQueues, listeners) = 
@@ -135,7 +127,7 @@ public class Board {
      */
 
     /**
-     * Constructs an instance of Board, a game of Set with 3 rows and 5 columns.
+     * Constructs an instance of Board, a game of Set with 3 rows and 4 columns.
      * @param cards a list of cards for the Board, 
      */
     public Board(List<Card> cards) {
@@ -144,23 +136,22 @@ public class Board {
         gameBoard = new ArrayList<>();
         
         final int rows = 3;
-        final int cols = 5;
+        final int cols = 4;
         
         for (int i=0; i<rows; i++) {
             List<Card> newRow = new ArrayList<>();
             for (int j=0; j<cols; j++) {
                 newRow.add(cardsCopy.get(counter));
                 counter += 1;
-                
-                squareStates.put(new Square(i, j), State.DOWN);
             }
             gameBoard.add(Collections.synchronizedList(new ArrayList<>(newRow)));
         }
         
         gameBoard = Collections.synchronizedList(gameBoard);
         scores = new ConcurrentHashMap<>();
-        squareStates = new ConcurrentHashMap<>();
         cardsRemaining = Collections.synchronizedList(cardsCopy.subList(rows*cols, cardsCopy.size()));
+        activePlayer = "";
+        squaresHeld = Collections.synchronizedList(new ArrayList<>());
 
         checkRep();
     }
@@ -198,13 +189,6 @@ public class Board {
         for (int i=0; i<gameBoard.size(); i++) {
             assert gameBoard.get(i).size() == rowLength;
         }
-        
-        for (int r=0; r<gameBoard.size(); r++) {
-            for (int c=0; c<gameBoard.get(0).size(); c++) {
-                assert squareStates.keySet().contains(new Square(r, c));
-            }
-        }
-        
     }
 
     @Override
@@ -223,8 +207,8 @@ public class Board {
      * @return whether the two have the same value
      */
     private boolean sameValue(Board that) {
+        // TODO update once all fields finalized
         return this.gameBoard.equals(that.gameBoard) 
-                && this.squareStates.equals(that.squareStates)
                 && this.scores.equals(that.scores)
                 && this.cardsRemaining.equals(that.cardsRemaining);
     }
@@ -323,21 +307,29 @@ public class Board {
 //        return new Board(gameBoard);
 //    }
     
+//    /**
+//     * Returns the state of a given square.
+//     * @param square the square's state to be queried
+//     * @return the square's current state
+//     */
+//    public State getSquareState(Square square) {
+//        return squareStates.get(square);
+//    }
+
+//    /**
+//     * Returns the current square states.
+//     * @return a copy of the current states of the squares in the board
+//     */
+//    public Map<Square, State> getSquareStates() {
+//        return new HashMap<Square, State>(squareStates);
+//    }
+
     /**
-     * Returns the state of a given square.
-     * @param square the square's state to be queried
-     * @return the square's current state
+     * Returns the squares currently being held by a player.
+     * @return a copy of the list of squares held
      */
-    public State getSquareState(Square square) {
-        return squareStates.get(square);
-    }
-    
-    /**
-     * Returns the current square states.
-     * @return a copy of a copy of the current states of the squares in the board
-     */
-    public Map<Square, State> getSquareStates(){
-        return new HashMap<Square, State>(squareStates);
+    public List<Square> getSquaresHeld() {
+        return new ArrayList<>(squaresHeld);
     }
     
     /**
@@ -375,29 +367,66 @@ public class Board {
     }
     
     /**
-     * Determines whether three cards makes a Set, as defined by the game rules.
-     * @param card1
-     * @param card2
-     * @param card3
-     * @return
+     * Determines whether the three cards held make a Set, as defined by the game rules.
+     * @return whether the three given cards is a set
      */
-    public boolean isSet(Card card1, Card card2, Card card3) {
-        // TODO
+    public boolean checkSet() {
+        Card card1 = getCard(squaresHeld.get(0));
+        Card card2 = getCard(squaresHeld.get(1));
+        Card card3 = getCard(squaresHeld.get(2));
+        int colors = new HashSet<Card.Color>(Arrays.asList(card1.color(), card2.color(), card3.color())).size();
+        int numbers = new HashSet<Card.Number>(Arrays.asList(card1.number(), card2.number(), card3.number())).size();
+        int shadings = new HashSet<Card.Shading>(Arrays.asList(card1.shading(), card2.shading(), card3.shading())).size();
+        int shapes = new HashSet<Card.Shape>(Arrays.asList(card1.shape(), card2.shape(), card3.shape())).size();
+        return (colors*numbers*shadings*shapes)%2 != 0; // the sets should all be either of size 1 or size 3
+    }
+    
+    
+    public synchronized void declareSet(String playerID) {
+        if (!activePlayer.equals("")) { // another player is currently selecting cards
+            return;
+        } else {
+            activePlayer = playerID;
+        }
+        // TODO update for controlling time limits?
     }
     
     /**
-     * Performs the flipping of a card by a particular player, according to the rules given in the pset 4 instructions.
+     * Performs the selection of a card by a particular player, according to the rules of Set.
      * @param square the coordinates of the card the player wants to flip
      * @param playerID the unique of the player
      * @throws InterruptedException
      */
-    public void flipCard(Square square, String playerID) throws InterruptedException {
+    public synchronized void pickCard(Square square, String playerID) throws InterruptedException {
         
-        // TODO
-        // obtain lock for the board (be sure that if someone gets a Set, everyone drops their lock)
-        // flip first card
-        // flip second card
-        // flip third card: if isSet, gain point, remove cards from board, add 3 more
+        if (!playerID.equals(activePlayer)) { // cannot pick card if not currently the player picking cards
+            return; 
+        }
+        
+        if (squaresHeld.contains(square)) { // nothing happens if card already selected is picked again
+            return;
+        }
+        
+        squaresHeld.add(square);
+        callListeners();
+        
+        // TODO can probably move these constants elsewhere later
+        final int setSize = 3;
+        final int pointsWon = 10; // gain 10 points for a correct set
+        final int pointsLost = 5; // lose 5 points for an incorrect set
+        
+        if (squaresHeld.size() == setSize) {
+            int score = scores.get(playerID);
+            if (checkSet()) {
+                scores.put(playerID, score + pointsWon);
+                // TODO add code for removing the set and placing three new cards
+            } else {
+                scores.put(playerID, score - pointsLost);
+            }
+            // reset the board so the next player can find a Set
+            squaresHeld.clear();
+            activePlayer = "";
+        }
         
         checkRep();
     }

@@ -10,7 +10,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -20,7 +19,6 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
-import memory.Board.State;
 import memory.web.ExceptionsFilter;
 import memory.web.HeadersFilter;
 import memory.web.LogFilter;
@@ -89,9 +87,13 @@ public class WebServer {
         HttpContext look = server.createContext("/look/", this::handleLook);
         look.getFilters().addAll(filters);
         
-        // handle requests for /flip/player/row,column
-        HttpContext flip = server.createContext("/flip/", this::handleFlip);
-        flip.getFilters().addAll(filters);
+        // handle requests for /declare/player
+        HttpContext declare = server.createContext("/declare/", this::handleDeclare);
+        declare.getFilters().addAll(filters);
+        
+        // handle requests for /pick/player/row,column
+        HttpContext pick = server.createContext("/pick/", this::handlePick);
+        pick.getFilters().addAll(filters);
         
         // handle requests for /scores
         HttpContext scores = server.createContext("/scores", this::handleScores);
@@ -134,43 +136,20 @@ public class WebServer {
     
     /**
      * Converts a board into the proper String representation to send as an HTTP response, 
-     * as specified in the pset 4 handout..
-     * @param board the Board to convert 
-     * @param playerID the unique ID of the player requesting the response
+     * as specified in the pset 4 handout.
      * @return the String representation
      */
-    private String boardResponse(String playerID) {
-        
-        Map<Square, Board.State> squareStates;
-        List<Square> squaresHeld;
-        if (board.isPlayer(playerID)) {
-            Map<List<Square>, Map<Square, State>> heldAndStates = board.getControlledAndStates(playerID);
-            squaresHeld = heldAndStates.keySet().iterator().next();
-            squareStates = heldAndStates.values().iterator().next();
-        } else {
-            squareStates = board.getSquareStates();
-            squaresHeld = new ArrayList<>(); // player is not participating, holds no squares
-        }
+    private String boardResponse() {
+        List<Square> squaresHeld = board.getSquaresHeld();
+
         String response = board.getNumRows()+"x"+board.getNumCols()+"\n";
-        for (int row=1; row<=board.getNumRows(); row++) {
-            for (int col=1; col<=board.getNumCols(); col++) {
+        for (int row=0; row<board.getNumRows(); row++) {
+            for (int col=0; col<board.getNumCols(); col++) {
                 Square sq = new Square(row, col);
-                switch (squareStates.get(sq)) {
-                case GONE:
-                    response += "none\n";
-                    break;
-                case UP:
-                    if (squaresHeld.contains(sq)) {
-                        response += "my " + board.getSquare(sq) + "\n";
-                    } else {
-                        response += "up " + board.getSquare(sq) + "\n";
-                    }
-                    break;
-                case DOWN:
-                    response += "down\n";
-                    break;
-                default:
-                    throw new AssertionError("should never get here");
+                if (squaresHeld.contains(sq)) {
+                    response += "up " + board.getCard(sq).toString() + "\n";
+                } else {
+                    response += board.getCard(sq).toString() + "\n";
                 }
             }
         }
@@ -200,7 +179,7 @@ public class WebServer {
             // - response length 0 means a response will be written
             // - you must call this method before calling getResponseBody()
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
-            response = boardResponse(player);
+            response = boardResponse();
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
@@ -219,14 +198,57 @@ public class WebServer {
     }
     
     /**
-     * Handles the /flip/player/row,column route. Attempts to flip the card at (row, column) for the given player.
+     * Handles the /declare/player route.
+     * @param exchange the HttpExchange used
+     * @throws IOException
+     */
+    private void handleDeclare(HttpExchange exchange) throws IOException {
+        // if you want to know the requested path:
+        final String path = exchange.getRequestURI().getPath();
+        
+        // it will always start with the base path from server.createContext():
+        final String base = exchange.getHttpContext().getPath();
+        assert path.startsWith(base);
+        
+        final String playerID = path.substring(base.length());
+        
+        final String response;
+        if (playerID.matches("\\w+")) {
+            // if the request is valid, respond with HTTP code 200 to indicate success
+            // - response length 0 means a response will be written
+            // - you must call this method before calling getResponseBody()
+            exchange.sendResponseHeaders(SUCCESS_CODE, 0);
+            if (!board.isPlayer(playerID)) {
+                board.addPlayer(playerID);
+            }
+            board.declareSet(playerID);
+            response = boardResponse();
+        } else {
+            // otherwise, respond with HTTP code 404 to indicate an error
+            exchange.sendResponseHeaders(ERROR_CODE, 0);
+            response = "Your player name ID contains non-alphanumeric characters.";
+        }
+        // write the response to the output stream using UTF-8 character encoding
+        OutputStream body = exchange.getResponseBody();
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
+        // println(..) will append a newline and auto-flush
+        // - to write without a newline, use e.g. print(..) and flush()
+        out.print(response);
+        out.flush();
+        
+        // if you do not close the exchange, the response will not be sent!
+        exchange.close();
+    }
+    
+    /**
+     * Handles the /pick/player/row,column route. Attempts to flip the card at (row, column) for the given player.
      * Sends a response showing the board, formatted as described in the grammar in the pset4 instructions, or reports 
-     * "Your requested flip was not valid." if the request was not formatted correctly or specified an out-of-bounds
+     * "Your requested pick was not valid." if the request was not formatted correctly or specified an out-of-bounds
      * square, or reports "Your requested flip was interrupted." in case of an InterruptedException.
      * @param exchange the HttpExchange used
      * @throws IOException
      */
-    private void handleFlip(HttpExchange exchange) throws IOException {
+    private void handlePick(HttpExchange exchange) throws IOException {
         // if you want to know the requested path:
         final String path = exchange.getRequestURI().getPath();
         
@@ -244,7 +266,7 @@ public class WebServer {
             
             final String[] splitParameters = parameters.split("/|,");
             final String playerID = splitParameters[0];
-            final Square card = new Square(Integer.valueOf(splitParameters[1]),
+            final Square square = new Square(Integer.valueOf(splitParameters[1]),
                     Integer.valueOf(splitParameters[2]));
             
             if (!board.isPlayer(playerID)) {
@@ -252,20 +274,20 @@ public class WebServer {
             }
             
             try {
-                board.flipCard(card, playerID);
+                board.pickCard(square, playerID);
                 exchange.sendResponseHeaders(SUCCESS_CODE, 0);
-                response = boardResponse(playerID);
+                response = boardResponse();
             } catch (InterruptedException e) {
                 exchange.sendResponseHeaders(ERROR_CODE, 0);
-                response = "Your requested flip was interrupted.";
+                response = "Your requested pick was interrupted.";
             } catch (NullPointerException npe) {
                 exchange.sendResponseHeaders(ERROR_CODE, 0);
-                response = "Your requested flip was not valid.";
+                response = "Your requested pick was not valid.";
             }
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
-            response = "Your requested flip was not valid.";
+            response = "Your requested pick was not valid.";
         }
         // write the response to the output stream using UTF-8 character encoding
         OutputStream body = exchange.getResponseBody();
@@ -326,6 +348,11 @@ public class WebServer {
         exchange.close();
     }
     
+    /**
+     * Handles the /watch/player route.
+     * @param exchange the HttpExchange used
+     * @throws IOException
+     */
     private void handleWatch(HttpExchange exchange) throws IOException {
         // if you want to know the requested path:
         final String path = exchange.getRequestURI().getPath();
@@ -349,7 +376,7 @@ public class WebServer {
                     e.printStackTrace();
                 }
             }
-            response = boardResponse(player);
+            response = boardResponse();
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);

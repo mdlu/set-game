@@ -36,8 +36,8 @@ public class Square {
     }
     
     private void checkRep() {
-        assert row > 0;
-        assert col > 0;
+        assert row >= 0;
+        assert col >= 0;
     }
 
     public int getRow() {
