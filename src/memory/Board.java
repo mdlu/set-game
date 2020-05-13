@@ -48,7 +48,7 @@ public class Board {
     /**
      * Returns a shuffled list of all cards in the deck.
      * 
-     * @param attributes the number of attributes a card should have (default is always 4 for now)
+     * @param attributes the number of attributes a card should have (currently supports 3, 4)
      * @return a shuffled list of all possible combinations of attributes, each combination representing a card
      */
     public static Board generateRandom(int attributes) {
@@ -58,15 +58,19 @@ public class Board {
         for (Card.Color color: Card.Color.values()) {
             for (Card.Number number: Card.Number.values()) {
                 for (Card.Shading shading: Card.Shading.values()) {
-                    for (Card.Shape shape: Card.Shape.values()) {
-                        cards.add(new Card(color, number, shading, shape));
+                    if (attributes == 3) {
+                        cards.add(new Card(color, number, shading, Card.Shape.SQUIGGLE));
+                    } else {
+                        for (Card.Shape shape: Card.Shape.values()) {
+                            cards.add(new Card(color, number, shading, shape));
+                        }
                     }
                 }
             }
         }
         
         Collections.shuffle(cards);
-        return new Board(cards);
+        return new Board(cards, attributes);
     }
     
     
@@ -131,14 +135,15 @@ public class Board {
     /**
      * Constructs an instance of Board, a game of Set with 3 rows and 4 columns.
      * @param cards a list of cards for the Board, 
+     * @param attributes the number of attributes being used
      */
-    public Board(List<Card> cards) {
+    public Board(List<Card> cards, int attributes) {
         List<Card> cardsCopy = new ArrayList<>(cards);
         int counter = 0;
         gameBoard = new ArrayList<>();
         
         final int rows = 3;
-        final int cols = 4;
+        final int cols = attributes;
         
         for (int i=0; i<rows; i++) {
             List<Card> newRow = new ArrayList<>();
