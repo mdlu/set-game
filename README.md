@@ -1,5 +1,5 @@
 ## Set
-####Basic Use:
+#### Basic Use:
 - run with "java -ea -cp bin memory.ServerMain 8080 4", where 8008 is the port and 4 is the number of attributes on a card (supports either 3 or 4 right now)
 - /look/player route to see the current board
 - /declare/player for a player to claim they have a set, giving them rights to pick cards
