@@ -34,57 +34,47 @@ public class Board {
      * @return a new board with the size and cards from the given file
      * @throws IOException if an error occurs reading or parsing the file
      */
-    public static Board parseFromFile(String filename) throws IOException {
-        List<List<String>> squares = new ArrayList<>();
-        BufferedReader in = new BufferedReader(new FileReader(filename));
-        String dimensions = in.readLine();
-        String[] dims = dimensions.split("x");
-        int rows = Integer.parseInt(dims[0]);
-        int cols = Integer.parseInt(dims[1]);
-        for (int r=0; r<rows; r++) {
-            List<String> newRow = new ArrayList<>();
-            for (int c=0; c<cols; c++) {
-                newRow.add(in.readLine());
-            }
-            squares.add(newRow);
-        }
-        in.close();
-        return new Board(squares);
-    }
+//    public static Board parseFromFile(String filename) throws IOException {
+//        List<List<String>> squares = new ArrayList<>();
+//        BufferedReader in = new BufferedReader(new FileReader(filename));
+//        String dimensions = in.readLine();
+//        String[] dims = dimensions.split("x");
+//        int rows = Integer.parseInt(dims[0]);
+//        int cols = Integer.parseInt(dims[1]);
+//        for (int r=0; r<rows; r++) {
+//            List<String> newRow = new ArrayList<>();
+//            for (int c=0; c<cols; c++) {
+//                newRow.add(in.readLine());
+//            }
+//            squares.add(newRow);
+//        }
+//        in.close();
+//        return new Board(squares);
+//    }
     
     /**
-     * Make a new random board.
+     * Returns a shuffled list of all cards in the deck.
      * 
-     * @param rows board height
-     * @param columns board width
-     * @param cards cards that appear on the board
-     * @return a new rows-by-columns-size board filled with a random permutation
-     *         of the given cards repeated in as equal numbers as possible
+     * @param attributes the number of attributes a card should have (default is always 4 for now)
+     * @return a shuffled list of all possible combinations of attributes, each combination representing a card
      */
-    public static Board generateRandom(int rows, int columns, Set<String> cards) {
-        List<String> squaresList = new ArrayList<>();
-        List<String> cardsList = new ArrayList<>(cards);
-        int index = 0;
-        int length = cards.size();
+    public static Board generateRandom(int attributes) {
         
-        for (int s=0; s<rows*columns; s++) { // add cards in as equal numbers as possible
-            squaresList.add(cardsList.get(index));
-            index = (index+1) % length;
-        }
-        Collections.shuffle(squaresList);
+        List<Card> cards = new ArrayList<>();
         
-        // assemble the cards into an array of dimensions rows*columns
-        List<List<String>> squares = new ArrayList<>(); 
-        index = 0;
-        for (int r=0; r<rows; r++) {
-            List<String> newRow = new ArrayList<>();
-            for (int c=0; c<columns; c++) {
-                newRow.add(squaresList.get(index));
-                index += 1;
+        for (Card.Color color: Card.Color.values()) {
+            for (Card.Number number: Card.Number.values()) {
+                for (Card.Shading shading: Card.Shading.values()) {
+                    for (Card.Shape shape: Card.Shape.values()) {
+                        cards.add(new Card(color, number, shading, shape));
+                    }
+                }
             }
-            squares.add(newRow);
         }
-        return new Board(squares);
+        
+        Collections.shuffle(cards);
+        
+        return new Board(cards);
     }
     
     
@@ -95,12 +85,10 @@ public class Board {
         public void boardChanged(); 
     }
     
-    private List<List<String>> gameBoard;
+    private List<List<Card>> gameBoard;
     private Map<String, Integer> scores;
-    private Map<String, List<Square>> heldSquares;
-    private Map<String, Boolean> isFirst;
     private Map<Square, State> squareStates;
-    private Map<Square, BlockingQueue<String>> squareQueues;
+    private List<Card> cardsRemaining;
     
     private Set<BoardListener> listeners = new HashSet<>();
     public enum State {UP, DOWN, GONE}
@@ -147,31 +135,33 @@ public class Board {
      */
 
     /**
-     * Constructs an instance of Board.
-     * @param squares a list of lists containing the text of the cards on the Board, 
-     * where the nth element in squares contains the text of all squares in order for the nth row
+     * Constructs an instance of Board, a game of Set with 3 rows and 5 columns.
+     * @param cards a list of cards for the Board, 
      */
-    public Board(List<List<String>> squares) {
+    public Board(List<Card> cards) {
+        List<Card> cardsCopy = new ArrayList<>(cards);
+        int counter = 0;
         gameBoard = new ArrayList<>();
-        for (List<String> row: squares) {
-            List<String> newRow = Collections.synchronizedList(new ArrayList<>(row));
-            gameBoard.add(newRow);
+        
+        final int rows = 3;
+        final int cols = 5;
+        
+        for (int i=0; i<rows; i++) {
+            List<Card> newRow = new ArrayList<>();
+            for (int j=0; j<cols; j++) {
+                newRow.add(cardsCopy.get(counter));
+                counter += 1;
+                
+                squareStates.put(new Square(i, j), State.DOWN);
+            }
+            gameBoard.add(Collections.synchronizedList(new ArrayList<>(newRow)));
         }
+        
         gameBoard = Collections.synchronizedList(gameBoard);
         scores = new ConcurrentHashMap<>();
         squareStates = new ConcurrentHashMap<>();
-        heldSquares = new ConcurrentHashMap<>();
-        squareQueues = new ConcurrentHashMap<>();
-        isFirst = new ConcurrentHashMap<>();
-        
-        int rows = squares.size();
-        int cols = squares.get(0).size();
-        for (int r=1; r<=rows; r++) {
-            for (int c=1; c<=cols; c++) {
-                squareStates.put(new Square(r,c), State.DOWN);
-                squareQueues.put(new Square(r,c), new ArrayBlockingQueue<>(1));
-            }
-        }
+        cardsRemaining = Collections.synchronizedList(cardsCopy.subList(rows*cols, cardsCopy.size()));
+
         checkRep();
     }
     
@@ -179,24 +169,24 @@ public class Board {
      * Constructor to make a new Board that has not been played on, by copying the card layout of another Board.
      * @param that the Board to copy from 
      */
-    public Board(Board that) {
-        gameBoard = Collections.synchronizedList(new ArrayList<>(that.gameBoard));
-        scores = new ConcurrentHashMap<>();
-        squareStates = new ConcurrentHashMap<>();
-        heldSquares = new ConcurrentHashMap<>();
-        squareQueues = new ConcurrentHashMap<>();
-        isFirst = new ConcurrentHashMap<>();
-        
-        int rows = gameBoard.size();
-        int cols = gameBoard.get(0).size();
-        for (int r=1; r<=rows; r++) {
-            for (int c=1; c<=cols; c++) {
-                squareStates.put(new Square(r,c), State.DOWN);
-                squareQueues.put(new Square(r,c), new ArrayBlockingQueue<>(1));
-            }
-        }
-        checkRep();
-    }
+//    public Board(Board that) {
+//        gameBoard = Collections.synchronizedList(new ArrayList<>(that.gameBoard));
+//        scores = new ConcurrentHashMap<>();
+//        squareStates = new ConcurrentHashMap<>();
+//        heldSquares = new ConcurrentHashMap<>();
+//        squareQueues = new ConcurrentHashMap<>();
+//        isFirst = new ConcurrentHashMap<>();
+//        
+//        int rows = gameBoard.size();
+//        int cols = gameBoard.get(0).size();
+//        for (int r=1; r<=rows; r++) {
+//            for (int c=1; c<=cols; c++) {
+//                squareStates.put(new Square(r,c), State.DOWN);
+//                squareQueues.put(new Square(r,c), new ArrayBlockingQueue<>(1));
+//            }
+//        }
+//        checkRep();
+//    }
     
     /**
      * Assert the representation invariant is true.
@@ -209,14 +199,9 @@ public class Board {
             assert gameBoard.get(i).size() == rowLength;
         }
         
-        for (String key: heldSquares.keySet()) {
-            assert heldSquares.get(key).size() <= 2;
-        }
-        
-        for (int r=1; r<gameBoard.size(); r++) {
-            for (int c=1; c<gameBoard.get(0).size(); c++) {
+        for (int r=0; r<gameBoard.size(); r++) {
+            for (int c=0; c<gameBoard.get(0).size(); c++) {
                 assert squareStates.keySet().contains(new Square(r, c));
-                assert squareQueues.keySet().contains(new Square(r, c));
             }
         }
         
@@ -241,15 +226,14 @@ public class Board {
         return this.gameBoard.equals(that.gameBoard) 
                 && this.squareStates.equals(that.squareStates)
                 && this.scores.equals(that.scores)
-                && this.heldSquares.equals(that.heldSquares)
-                && this.isFirst.equals(that.isFirst);
+                && this.cardsRemaining.equals(that.cardsRemaining);
     }
     
     @Override
     public int hashCode() { 
         int sum = 0;
         for (int i=0; i<gameBoard.size(); i++) {
-            List<String> row = new ArrayList<>(gameBoard.get(i));
+            List<Card> row = new ArrayList<>(gameBoard.get(i));
             for (int j=0; j<row.size(); j++) {
                 sum += row.get(j).hashCode();
             }
@@ -269,8 +253,6 @@ public class Board {
                 return false;
             }
             scores.put(playerID, 0);
-            heldSquares.put(playerID, Collections.synchronizedList(new ArrayList<>()));
-            isFirst.put(playerID, true);
             checkRep();
             return true;
         }
@@ -303,43 +285,43 @@ public class Board {
     
     /**
      * Retrieves a game board row.
-     * @param row the row, must lie between 1 and the number of rows in the game board, inclusive
+     * @param row the row, must lie between 0 (inclusive) and the number of rows in the game board (exclusive)
      * @return the specified row
      */
-    public List<String> getRow(int row) {
-        return new ArrayList<>(gameBoard.get(row-1));
+    public List<Card> getRow(int row) {
+        return new ArrayList<>(gameBoard.get(row));
     }
     
     /**
      * Retrieves a game board column.
-     * @param col the column, must lie between 1 and the number of columns in the game board, inclusive
+     * @param col the column, must lie between 0 (inclusive) and the number of columns in the game board (exclusive)
      * @return the specified column
      */
-    public List<String> getColumn(int col) {
-        List<String> column = new ArrayList<>();
+    public List<Card> getColumn(int col) {
+        List<Card> column = new ArrayList<>();
         for (int i=0; i<gameBoard.size(); i++) {
-            column.add(gameBoard.get(i).get(col-1));
+            column.add(gameBoard.get(i).get(col));
         }
         checkRep();
         return column;
     }
     
     /**
-     * Retrieves the text on a given card.
-     * @param card the coordinates of the card requested
+     * Retrieves a given card.
+     * @param square the coordinates of the card requested
      * @return the text of the requested card
      */
-    public String getSquare(Square card) {
-        return gameBoard.get(card.getRow()-1).get(card.getCol()-1);
+    public Card getCard(Square square) {
+        return gameBoard.get(square.getRow()).get(square.getCol());
     }
     
     /**
      * Gets a copy of the current board.
      * @return returns the current board, with only the text of the cards; does not return any player data or card states
      */
-    public Board getBoard() {
-        return new Board(gameBoard);
-    }
+//    public Board getBoard() {
+//        return new Board(gameBoard);
+//    }
     
     /**
      * Returns the state of a given square.
@@ -385,15 +367,6 @@ public class Board {
     }
     
     /**
-     * Returns the squares held by a palyer.
-     * @param playerID the unique ID of a player
-     * @return a list of squares held by that player
-     */
-    public List<Square> getSquaresHeld(String playerID) {
-        return new ArrayList<>(heldSquares.get(playerID));
-    }
-    
-    /**
      * Returns the scores of the Board at present.
      * @return a Map mapping player IDs to their scores
      */
@@ -402,153 +375,30 @@ public class Board {
     }
     
     /**
-     * Returns whether the next flip by the player is a "first card".
-     * @param playerID the unique ID of the player
-     * @return whether the next flip will be a "first card"
+     * Determines whether three cards makes a Set, as defined by the game rules.
+     * @param card1
+     * @param card2
+     * @param card3
+     * @return
      */
-    public boolean isPlayerFirst(String playerID) {
-        return isFirst.get(playerID);
-    }
-    
-    /**
-     * Returns the current controller of a given square.
-     * @param square the requested square to query
-     * @return the player currently controlling that square
-     */
-    public String getController(Square square) {
-        return squareQueues.get(square).peek();
-    }
-    
-    /**
-     * Returns the list of squares held for the given player, and the current list of 
-     * states of all squares on the board. The two are guaranteed to agree at the time the 
-     * method is called.
-     * @param playerID the unique ID of the player
-     * @return a one-element Map with a key holding the list of squares, and the value holding
-     * the list of states of all squares
-     */
-    public Map<List<Square>, Map<Square, State>> getControlledAndStates(String playerID){
-        // lock is used throughout flipCard to ensure the player's held squares, queues, and all square states agree
-        synchronized (heldSquares) { 
-            List<Square> squaresControlled = new ArrayList<>();
-            for (Square sq: squareQueues.keySet()) {
-                if (getController(sq) != null && getController(sq).equals(playerID)) {
-                    squaresControlled.add(sq);
-                }
-            }
-            return Map.of(squaresControlled, getSquareStates());
-        }
+    public boolean isSet(Card card1, Card card2, Card card3) {
+        // TODO
     }
     
     /**
      * Performs the flipping of a card by a particular player, according to the rules given in the pset 4 instructions.
-     * @param card the coordinates of the card the player wants to flip
+     * @param square the coordinates of the card the player wants to flip
      * @param playerID the unique of the player
      * @throws InterruptedException
      */
-    public void flipCard(Square card, String playerID) throws InterruptedException {
+    public void flipCard(Square square, String playerID) throws InterruptedException {
         
-        if (!isFirst.get(playerID)) {
-            synchronized (heldSquares) {
-                Square heldSquare = heldSquares.get(playerID).get(0);
-                
-                synchronized (squareQueues.get(card)) {
-                    if (squareStates.get(card).equals(State.GONE)) { // rule 2A
-                        squareQueues.get(heldSquare).take(); // relinquish control
-                    } else {
-                        try {
-                            squareQueues.get(card).add(playerID); // nonblocking 
-                            if (squareStates.get(card).equals(State.DOWN)) { // rule 2C
-                                squareStates.put(card, State.UP);
-                                callListeners();
-                            }
-                            heldSquares.get(playerID).add(card);
-                            checkMatch(playerID);
-                        } catch (IllegalStateException ise) {
-                            squareQueues.get(heldSquare).take(); // rule 2B
-                        }
-                    }
-                }
-                
-                isFirst.put(playerID, true);
-            }
-            
-        } else { // flipping a first card, possibly after trying to turn a second card
-            synchronized (heldSquares) {
-                if (heldSquares.get(playerID).size() == 2) {
-                    Square square1 = heldSquares.get(playerID).get(0);
-                    Square square2 = heldSquares.get(playerID).get(1);
-                    String card1 = getSquare(square1);
-                    String card2 = getSquare(square2);
-                    if (card1.equals(card2)) { // rule 3A
-                        synchronized (squareQueues.get(square1)) {
-                            squareStates.put(square1, State.GONE); // remove cards
-                            squareQueues.get(square1).take(); // relinquish control
-                            callListeners();
-                        }
-                        synchronized (squareQueues.get(square2)) {
-                            squareStates.put(square2, State.GONE);
-                            squareQueues.get(square2).take();
-                            callListeners();
-                        }
-                    }
-                } 
-                // rule 3B
-                for (Square square: heldSquares.get(playerID)) {
-                    synchronized (squareQueues.get(square)) {
-                        if (squareStates.get(square).equals(State.UP) && squareQueues.get(square).size() == 0) {
-                            squareStates.put(square, State.DOWN);
-                            callListeners();
-                        }
-                    }   
-                }
-                heldSquares.get(playerID).clear();
-            }
-            
-            squareQueues.get(card).put(playerID); // rule 1D, blocks if held
-            
-            synchronized (heldSquares) {
-                synchronized (squareQueues.get(card)) {
-                    if (squareStates.get(card).equals(State.GONE)) { // rule 1A
-                        squareQueues.get(card).take();
-                        return; // return immediately so isFirst is not set to false
-                    } else if (squareStates.get(card).equals(State.DOWN)) { // rule 1B
-                        squareStates.put(card, State.UP);
-                        heldSquares.get(playerID).add(card);
-                        callListeners();
-                    } else { // rule 1C
-                        heldSquares.get(playerID).add(card);
-                    }
-                }
-                
-                isFirst.put(playerID, false);
-            }
-        }
-        checkRep();
-    }
-    
-    /**
-     * Handles if the cards held by a player have matching text symbols on the board.
-     * Adds 1 to the player's score if the player holds two cards that match, and otherwise relinquishes control of them.
-     * @param playerID unique ID of the player
-     * @throws InterruptedException
-     */
-    private void checkMatch(String playerID) throws InterruptedException {
-        if (heldSquares.get(playerID).size() != 2) {
-            return;
-        }
-        Square square1 = heldSquares.get(playerID).get(0);
-        Square square2 = heldSquares.get(playerID).get(1);
-        String card1 = getSquare(square1);
-        String card2 = getSquare(square2);
+        // TODO
+        // obtain lock for the board (be sure that if someone gets a Set, everyone drops their lock)
+        // flip first card
+        // flip second card
+        // flip third card: if isSet, gain point, remove cards from board, add 3 more
         
-        if (card1.equals(card2)) { // rule 2D
-            int score = scores.get(playerID);
-            scores.put(playerID, score + 1);
-        } else { // rule 2E, relinquish control of squares
-            squareQueues.get(square1).take();
-            squareQueues.get(square2).take();
-        }
         checkRep();
     }
 }
