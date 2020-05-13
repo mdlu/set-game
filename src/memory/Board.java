@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,10 +79,11 @@ public class Board {
     
     private List<List<Card>> gameBoard;
     private Map<String, Integer> scores;
-    private List<Card> cardsRemaining;
+    private LinkedList<Card> cardsRemaining;
     
     private String activePlayer;
     private List<Square> squaresHeld;
+    private List<Square> emptySquares;
     
     private Set<BoardListener> listeners = new HashSet<>();
     
@@ -149,9 +151,12 @@ public class Board {
         
         gameBoard = Collections.synchronizedList(gameBoard);
         scores = new ConcurrentHashMap<>();
-        cardsRemaining = Collections.synchronizedList(cardsCopy.subList(rows*cols, cardsCopy.size()));
+        
+        // linked list is more efficient for removing the first card
+        cardsRemaining = new LinkedList<>(cardsCopy.subList(rows*cols, cardsCopy.size()));
         activePlayer = "";
         squaresHeld = Collections.synchronizedList(new ArrayList<>());
+        emptySquares = Collections.synchronizedList(new ArrayList<>());
 
         checkRep();
     }
@@ -255,7 +260,7 @@ public class Board {
      * Gets the number of rows in the Board.
      * @return the number of rows
      */
-    public int getNumRows() {
+    public synchronized int getNumRows() {
         return gameBoard.size();
     }
     
@@ -263,7 +268,7 @@ public class Board {
      * Gets the number of columns in the Board.
      * @return the number of columns
      */
-    public int getNumCols() {
+    public synchronized int getNumCols() {
         return gameBoard.get(0).size();
     }
     
@@ -272,7 +277,7 @@ public class Board {
      * @param row the row, must lie between 0 (inclusive) and the number of rows in the game board (exclusive)
      * @return the specified row
      */
-    public List<Card> getRow(int row) {
+    public synchronized List<Card> getRow(int row) {
         return new ArrayList<>(gameBoard.get(row));
     }
     
@@ -281,7 +286,7 @@ public class Board {
      * @param col the column, must lie between 0 (inclusive) and the number of columns in the game board (exclusive)
      * @return the specified column
      */
-    public List<Card> getColumn(int col) {
+    public synchronized List<Card> getColumn(int col) {
         List<Card> column = new ArrayList<>();
         for (int i=0; i<gameBoard.size(); i++) {
             column.add(gameBoard.get(i).get(col));
@@ -295,8 +300,17 @@ public class Board {
      * @param square the coordinates of the card requested
      * @return the text of the requested card
      */
-    public Card getCard(Square square) {
+    public synchronized Card getCard(Square square) {
         return gameBoard.get(square.getRow()).get(square.getCol());
+    }
+    
+    /**
+     * Sets a given square to the given Set card.
+     * @param square
+     * @param card
+     */
+    public synchronized void setCard(Square square, Card card) {
+        gameBoard.get(square.getRow()).set(square.getCol(), card);
     }
     
     /**
@@ -328,8 +342,16 @@ public class Board {
      * Returns the squares currently being held by a player.
      * @return a copy of the list of squares held
      */
-    public List<Square> getSquaresHeld() {
+    public synchronized List<Square> getSquaresHeld() {
         return new ArrayList<>(squaresHeld);
+    }
+    
+    /**
+     * Returns the empty squares on the board.
+     * @return a copy of the list of empty squares
+     */
+    public synchronized List<Square> getEmptySquares() {
+        return new ArrayList<>(emptySquares);
     }
     
     /**
@@ -362,7 +384,7 @@ public class Board {
      * Returns the scores of the Board at present.
      * @return a Map mapping player IDs to their scores
      */
-    public Map<String, Integer> getScores() {
+    public synchronized Map<String, Integer> getScores() {
         return new HashMap<>(scores);
     }
     
@@ -370,7 +392,7 @@ public class Board {
      * Determines whether the three cards held make a Set, as defined by the game rules.
      * @return whether the three given cards is a set
      */
-    public boolean checkSet() {
+    public synchronized boolean checkSet() {
         Card card1 = getCard(squaresHeld.get(0));
         Card card2 = getCard(squaresHeld.get(1));
         Card card3 = getCard(squaresHeld.get(2));
@@ -381,7 +403,10 @@ public class Board {
         return (colors*numbers*shadings*shapes)%2 != 0; // the sets should all be either of size 1 or size 3
     }
     
-    
+    /** 
+     * Allows a player to declare they've foud a set, giving them rights to start picking 3 cards.
+     * @param playerID the unique ID of the player
+     */
     public synchronized void declareSet(String playerID) {
         if (!activePlayer.equals("")) { // another player is currently selecting cards
             return;
@@ -389,6 +414,36 @@ public class Board {
             activePlayer = playerID;
         }
         // TODO update for controlling time limits?
+    }
+    
+    /**
+     * Executes the replacement of three cards once they're found.
+     */
+    public synchronized void replaceCards() {
+        final int numCards = 3;
+        if (cardsRemaining.size() == 0) {
+            emptySquares.addAll(squaresHeld);
+        } else {
+            for (int i=0; i<numCards; i++) {
+                Square sq = squaresHeld.get(i);
+                Card newCard = cardsRemaining.removeFirst();
+                setCard(sq, newCard);
+            }
+        }
+    }
+    
+    /**
+     * Adds three cards to the board; called if no one can find a Set on the given board.
+     */
+    public synchronized void addCards() {
+        final int rows = 3;
+        if (cardsRemaining.size() == 0) { // can't add more cards if none left
+            return; 
+        }
+        for (int row=0; row<rows; row++) {
+            Card newCard = cardsRemaining.removeFirst();
+            gameBoard.get(row).add(newCard);
+        }
     }
     
     /**
@@ -419,7 +474,9 @@ public class Board {
             int score = scores.get(playerID);
             if (checkSet()) {
                 scores.put(playerID, score + pointsWon);
-                // TODO add code for removing the set and placing three new cards
+                replaceCards();
+                
+                callListeners();
             } else {
                 scores.put(playerID, score - pointsLost);
             }

@@ -95,6 +95,10 @@ public class WebServer {
         HttpContext pick = server.createContext("/pick/", this::handlePick);
         pick.getFilters().addAll(filters);
         
+        // handle requests for /add/player
+        HttpContext add = server.createContext("/add/", this::handleAdd);
+        add.getFilters().addAll(filters);
+        
         // handle requests for /scores
         HttpContext scores = server.createContext("/scores", this::handleScores);
         scores.getFilters().addAll(filters);
@@ -140,14 +144,17 @@ public class WebServer {
      * @return the String representation
      */
     private String boardResponse() {
+        List<Square> emptySquares = board.getEmptySquares();
         List<Square> squaresHeld = board.getSquaresHeld();
-
+        
         String response = board.getNumRows()+"x"+board.getNumCols()+"\n";
         for (int row=0; row<board.getNumRows(); row++) {
             for (int col=0; col<board.getNumCols(); col++) {
                 Square sq = new Square(row, col);
-                if (squaresHeld.contains(sq)) {
-                    response += "up " + board.getCard(sq).toString() + "\n";
+                if (emptySquares.contains(sq)) {
+                    response += "gone\n";
+                } else if (squaresHeld.contains(sq)) {
+                    response += "active " + board.getCard(sq).toString() + "\n";
                 } else {
                     response += board.getCard(sq).toString() + "\n";
                 }
@@ -288,6 +295,49 @@ public class WebServer {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your requested pick was not valid.";
+        }
+        // write the response to the output stream using UTF-8 character encoding
+        OutputStream body = exchange.getResponseBody();
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
+        // println(..) will append a newline and auto-flush
+        // - to write without a newline, use e.g. print(..) and flush()
+        out.print(response);
+        out.flush();
+        
+        // if you do not close the exchange, the response will not be sent!
+        exchange.close();
+    }
+    
+    /**
+     * Handles the /add/player route.
+     * @param exchange the HttpExchange used
+     * @throws IOException
+     */
+    private void handleAdd(HttpExchange exchange) throws IOException {
+        // if you want to know the requested path:
+        final String path = exchange.getRequestURI().getPath();
+        
+        // it will always start with the base path from server.createContext():
+        final String base = exchange.getHttpContext().getPath();
+        assert path.startsWith(base);
+        
+        final String playerID = path.substring(base.length());
+        
+        final String response;
+        if (playerID.matches("\\w+")) {
+            // if the request is valid, respond with HTTP code 200 to indicate success
+            // - response length 0 means a response will be written
+            // - you must call this method before calling getResponseBody()
+            exchange.sendResponseHeaders(SUCCESS_CODE, 0);
+            if (!board.isPlayer(playerID)) {
+                board.addPlayer(playerID);
+            }
+            board.addCards();
+            response = boardResponse();
+        } else {
+            // otherwise, respond with HTTP code 404 to indicate an error
+            exchange.sendResponseHeaders(ERROR_CODE, 0);
+            response = "Your player name ID contains non-alphanumeric characters.";
         }
         // write the response to the output stream using UTF-8 character encoding
         OutputStream body = exchange.getResponseBody();

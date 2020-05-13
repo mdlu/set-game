@@ -4,6 +4,7 @@ Basic Use:
 - /look/player route to see the current board
 - /declare/player for a player to claim they have a set, giving them rights to pick cards
 - /pick/player/row,col for a player to pick a card on the board (zero-indexed)
+- /add/player to add 3 cards to the board
 - /scores to see current scores
 
 Rules: 
