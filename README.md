@@ -6,13 +6,26 @@
 - /pick/player/row,col for a player to pick a card on the board (zero-indexed)
 - /add/player to add 3 cards to the board
 - /scores to see current scores
+- /watch blocks until a card is clicked, cards are removed or replaced, cards are added, or someone declares a set
+
+#### Card:
+A card in Set has four basic attributes:
+- color: red, green, purple
+- number: one, two, three
+- shading: solid, striped, open
+- shape: diamond, squiggle, oval
+If 4 attributes are desired, all are used; if only 3 are desired, all shapes default to squiggle.
 
 #### Rules: 
-- first person to click a card blocks other players until they have clicked 3 cards, player has a certain time limit to complete their set (something short, like 3sec?)
-- some sort of penalty if the 3 cards are not a set, to discourage random clicking
-- mechanism for adding 3 cards if nobody can find a set, perhaps require everyone to vote to agree (consider: odds of there not being a set in 15 cards? 18 cards? 21 cards? and adjusting game/UI accordingly), also some sort of time limit so someone can't say no forever
+- If 4 attributes are being used, a 3x4 board is laid out; if 3 attributes, then a 3x3 board is used.
+- The objective is to find Sets, where a Set is defined as three cards where, for each basic attribute, the properties of the three cards are all the same, or all different.
+- To declare you have a found a Set, you click "Declare". You then have 5 seconds to click 3 cards which you believe are a Set.
+- If your 3 cards make a Set, you gain 10 points; if they are not a Set, or you time out, you lose 5 points.
+- If a Set is found, and the board was at its default size (3x4 or 3x3) or smaller, those 3 cards are replaced from the remainder of deck, if any cards remain. Otherwise (if the board was larger than its default size), the 3 cards are removed, and the board is rearranged so it now contains one less column.
+- If you believe no Set exists on the given board, you can vote to add 3 more cards by clicking "Add". If all players vote to add, a new column of 3 cards will be added to the board.
 
 #### Thoughts:
+- mechanism for adding 3 cards if nobody can find a set, perhaps require everyone to vote to agree (consider: odds of there not being a set in 15 cards? 18 cards? 21 cards? and adjusting game/UI accordingly), also some sort of time limit so someone can't say no forever
 - implementing some sort of hint mechanism? (if people can't find a Set)
 - scoreboard, scoring mechanism? (should there be any time element involved?)
 - customizable shapes/colors/etc?

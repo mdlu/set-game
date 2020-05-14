@@ -232,10 +232,8 @@ public class WebServer {
      * @throws IOException
      */
     private void handleDeclare(HttpExchange exchange) throws IOException {
-        // if you want to know the requested path:
         final String path = exchange.getRequestURI().getPath();
         
-        // it will always start with the base path from server.createContext():
         final String base = exchange.getHttpContext().getPath();
         assert path.startsWith(base);
         
@@ -243,9 +241,6 @@ public class WebServer {
         
         final String response;
         if (playerID.matches("\\w+")) {
-            // if the request is valid, respond with HTTP code 200 to indicate success
-            // - response length 0 means a response will be written
-            // - you must call this method before calling getResponseBody()
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
             if (!board.isPlayer(playerID)) {
                 board.addPlayer(playerID);
@@ -253,19 +248,15 @@ public class WebServer {
             board.declareSet(playerID);
             response = boardResponse(playerID);
         } else {
-            // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your player name ID contains non-alphanumeric characters.";
         }
-        // write the response to the output stream using UTF-8 character encoding
         OutputStream body = exchange.getResponseBody();
         PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
-        // println(..) will append a newline and auto-flush
-        // - to write without a newline, use e.g. print(..) and flush()
+
         out.print(response);
         out.flush();
         
-        // if you do not close the exchange, the response will not be sent!
         exchange.close();
     }
     
@@ -278,10 +269,8 @@ public class WebServer {
      * @throws IOException
      */
     private void handlePick(HttpExchange exchange) throws IOException {
-        // if you want to know the requested path:
         final String path = exchange.getRequestURI().getPath();
         
-        // it will always start with the base path from server.createContext():
         final String base = exchange.getHttpContext().getPath();
         assert path.startsWith(base);
         
@@ -289,10 +278,6 @@ public class WebServer {
         
         String response;
         if (parameters.matches("\\w+/[0-9]+,[0-9]+")) {
-            // if the request is valid, respond with HTTP code 200 to indicate success
-            // - response length 0 means a response will be written
-            // - you must call this method before calling getResponseBody()
-            
             final String[] splitParameters = parameters.split("/|,");
             final String playerID = splitParameters[0];
             final Square square = new Square(Integer.valueOf(splitParameters[1]),
@@ -314,19 +299,15 @@ public class WebServer {
                 response = "Your requested pick was not valid.";
             }
         } else {
-            // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your requested pick was not valid.";
         }
-        // write the response to the output stream using UTF-8 character encoding
         OutputStream body = exchange.getResponseBody();
         PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
-        // println(..) will append a newline and auto-flush
-        // - to write without a newline, use e.g. print(..) and flush()
+
         out.print(response);
         out.flush();
         
-        // if you do not close the exchange, the response will not be sent!
         exchange.close();
     }
     
@@ -336,10 +317,8 @@ public class WebServer {
      * @throws IOException
      */
     private void handleAdd(HttpExchange exchange) throws IOException {
-        // if you want to know the requested path:
         final String path = exchange.getRequestURI().getPath();
         
-        // it will always start with the base path from server.createContext():
         final String base = exchange.getHttpContext().getPath();
         assert path.startsWith(base);
         
@@ -347,9 +326,6 @@ public class WebServer {
         
         final String response;
         if (playerID.matches("\\w+")) {
-            // if the request is valid, respond with HTTP code 200 to indicate success
-            // - response length 0 means a response will be written
-            // - you must call this method before calling getResponseBody()
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
             if (!board.isPlayer(playerID)) {
                 board.addPlayer(playerID);
@@ -370,19 +346,15 @@ public class WebServer {
             }
             response = scoreString;
         } else {
-            // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your player name ID contains non-alphanumeric characters.";
         }
-        // write the response to the output stream using UTF-8 character encoding
         OutputStream body = exchange.getResponseBody();
         PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
-        // println(..) will append a newline and auto-flush
-        // - to write without a newline, use e.g. print(..) and flush()
+
         out.print(response);
         out.flush();
         
-        // if you do not close the exchange, the response will not be sent!
         exchange.close();
     }
     
@@ -395,10 +367,8 @@ public class WebServer {
      * @throws IOException
      */
     private void handleScores(HttpExchange exchange) throws IOException {
-        // if you want to know the requested path:
         final String path = exchange.getRequestURI().getPath();
         
-        // it will always start with the base path from server.createContext():
         final String base = exchange.getHttpContext().getPath();
         assert path.startsWith(base);
         
@@ -406,9 +376,6 @@ public class WebServer {
         
         final String response;
         if (params.length() == 0) {
-            // if the request is valid, respond with HTTP code 200 to indicate success
-            // - response length 0 means a response will be written
-            // - you must call this method before calling getResponseBody()
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
             Set<String> votes = board.getVotes();
             Map<String, Integer> scores = board.getScores();
@@ -424,19 +391,15 @@ public class WebServer {
             }
             response = scoreString;
         } else {
-            // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "There should be no additional characters following /scores in the request.";
         }
-        // write the response to the output stream using UTF-8 character encoding
         OutputStream body = exchange.getResponseBody();
         PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
-        // println(..) will append a newline and auto-flush
-        // - to write without a newline, use e.g. print(..) and flush()
+
         out.print(response);
         out.flush();
         
-        // if you do not close the exchange, the response will not be sent!
         exchange.close();
     }
     
@@ -446,10 +409,8 @@ public class WebServer {
      * @throws IOException
      */
     private void handleWatch(HttpExchange exchange) throws IOException {
-        // if you want to know the requested path:
         final String path = exchange.getRequestURI().getPath();
         
-        // it will always start with the base path from server.createContext():
         final String base = exchange.getHttpContext().getPath();
         assert path.startsWith(base);
         
@@ -457,9 +418,6 @@ public class WebServer {
         
         final String response;
         if (player.matches("\\w+")) {
-            // if the request is valid, respond with HTTP code 200 to indicate success
-            // - response length 0 means a response will be written
-            // - you must call this method before calling getResponseBody()
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
             synchronized (board) {
                 try {
@@ -470,19 +428,14 @@ public class WebServer {
             }
             response = boardResponse(player);
         } else {
-            // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your player name ID may only consist of alphanumeric characters.";
         }
-        // write the response to the output stream using UTF-8 character encoding
         OutputStream body = exchange.getResponseBody();
         PrintWriter out = new PrintWriter(new OutputStreamWriter(body, UTF_8), true);
-        // println(..) will append a newline and auto-flush
-        // - to write without a newline, use e.g. print(..) and flush()
         out.print(response);
         out.flush();
         
-        // if you do not close the exchange, the response will not be sent!
         exchange.close();
     }
 }

@@ -56,6 +56,9 @@ public class Board {
         public void boardChanged(); 
     }
     
+    private static final int DEFAULT_ROWS = 3;
+    private static final int SET_SIZE = 3;
+    
     private List<List<Card>> gameBoard;
     private Map<String, Integer> scores;
     private LinkedList<Card> cardsRemaining;
@@ -64,6 +67,7 @@ public class Board {
     private List<Square> squaresHeld;
     private Set<String> votes;
     private long timeOut;
+    private final int defaultColumns;
     
     private Set<BoardListener> listeners = new HashSet<>();
     
@@ -119,12 +123,11 @@ public class Board {
         int counter = 0;
         gameBoard = new ArrayList<>();
         
-        final int rows = 3;
-        final int cols = attributes;
+        defaultColumns = attributes;
         
-        for (int i=0; i<rows; i++) {
+        for (int i=0; i<DEFAULT_ROWS; i++) {
             List<Card> newRow = new ArrayList<>();
-            for (int j=0; j<cols; j++) {
+            for (int j=0; j<defaultColumns; j++) {
                 newRow.add(cardsCopy.get(counter));
                 counter += 1;
             }
@@ -135,7 +138,7 @@ public class Board {
         scores = new ConcurrentHashMap<>();
         
         // linked list is more efficient for removing the first card
-        cardsRemaining = new LinkedList<>(cardsCopy.subList(rows*cols, cardsCopy.size()));
+        cardsRemaining = new LinkedList<>(cardsCopy.subList(DEFAULT_ROWS*defaultColumns, cardsCopy.size()));
         activePlayer = "";
         squaresHeld = Collections.synchronizedList(new ArrayList<>());
         votes = Collections.synchronizedSet(new HashSet<>());
@@ -368,24 +371,23 @@ public class Board {
      * Executes the condensing of 3 x (n+1) cards to 3 x n when n>4 and a Set is found.
      */
     public synchronized void condenseCards() {
-        final int numCards = 3;
         List<Card> cardsHeld = new ArrayList<>();
         int cols = getNumCols();
         
-        for (int i=0; i<numCards; i++) {
+        for (int i=0; i<SET_SIZE; i++) {
             Square sq = squaresHeld.get(i);
             Card card = getCard(sq);
             cardsHeld.add(card);
         }
         
         List<Card> allCards = new ArrayList<>();
-        for (int i=0; i<numCards; i++) { // remove the 3 cards found in the Set
+        for (int i=0; i<SET_SIZE; i++) { // remove the 3 cards found in the Set
             gameBoard.get(i).removeAll(cardsHeld);
             allCards.addAll(gameBoard.get(i));
         }
         
         int counter = 0;
-        for (int i=0; i<numCards; i++) {
+        for (int i=0; i<DEFAULT_ROWS; i++) {
             List<Card> newRow = Collections.synchronizedList(new ArrayList<>());
             for (int j=0; j<cols-1; j++) {
                 newRow.add(allCards.get(counter));
@@ -393,20 +395,16 @@ public class Board {
             }
             gameBoard.set(i, newRow);
         }
-        
-//        System.out.println(gameBoard); // debugging
     }
     
     /**
      * Executes the replacement of three cards once they're found.
      */
     public synchronized void replaceCards() {
-        final int numCards = 3;
-        final int defaultColumns = 4;
         if (cardsRemaining.size() == 0 || getNumCols() > defaultColumns) {
             condenseCards();
         } else {
-            for (int i=0; i<numCards; i++) {
+            for (int i=0; i<SET_SIZE; i++) {
                 Square sq = squaresHeld.get(i);
                 Card newCard = cardsRemaining.removeFirst();
                 setCard(sq, newCard);
@@ -419,11 +417,7 @@ public class Board {
      * Adds three cards to the board; called if no one can find a Set on the given board.
      */
     public synchronized void addCards() {
-        final int rows = 3;
-//        if (cardsRemaining.size() == 0) { // can't add more cards if none left
-//            return; 
-//        }
-        for (int row=0; row<rows; row++) {
+        for (int row=0; row<DEFAULT_ROWS; row++) {
             Card newCard = cardsRemaining.removeFirst();
             gameBoard.get(row).add(newCard);
         }
@@ -468,11 +462,9 @@ public class Board {
      * @throws InterruptedException
      */
     public synchronized void pickCard(Square square, String playerID) throws InterruptedException {
-        
         if (!playerID.equals(activePlayer)) { // cannot pick card if not currently the player picking cards
             return; 
         }
-        
         if (squaresHeld.contains(square)) { // nothing happens if card already selected is picked again
             return;
         }
@@ -480,19 +472,15 @@ public class Board {
         squaresHeld.add(square);
         callListeners();
         
-        // TODO can probably move these constants elsewhere later
-        final int setSize = 3;
         final int pointsWon = 10; // gain 10 points for a correct set
         final int pointsLost = 5; // lose 5 points for an incorrect set
         
-        if (squaresHeld.size() == setSize) {
+        if (squaresHeld.size() == SET_SIZE) {
             int score = scores.get(playerID);
             if (checkSet()) {
                 scores.put(playerID, score + pointsWon);
                 votes.clear(); // TODO consider if other things need to be cleared when a set is found
                 replaceCards();
-                
-                callListeners();
             } else {
                 scores.put(playerID, score - pointsLost);
             }
