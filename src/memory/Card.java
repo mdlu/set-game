@@ -68,7 +68,7 @@ public class Card {
     
     @Override
     public String toString() {
-        return number+" "+color+" "+shading+" "+shape;
+        return number+"/"+color+"/"+shading+"/"+shape;
     }
     
     @Override

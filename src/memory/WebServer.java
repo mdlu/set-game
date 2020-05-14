@@ -152,21 +152,34 @@ public class WebServer {
         List<Square> squaresHeld = board.getSquaresHeld();
         String declarer = board.getDeclarer();
         
-        final String modifier;
-        if (declarer.equals(playerID)) {
-            modifier = "my ";
-        } else {
-            modifier = "up ";
-        }
+//        final String modifier;
+//        if (declarer.equals(playerID)) {
+//            modifier = "my ";
+//        } else {
+//            modifier = "up ";
+//        }
         
         String response = board.getNumRows()+"x"+board.getNumCols()+"\n";
         if (declarer.equals("")) {
             response += "none\n";
         } else {
+          final String modifier;
+          if (declarer.equals(playerID)) {
+              modifier = "my ";
+          } else {
+              modifier = "up ";
+          }
             response += modifier + "\n"; // TODO update with MILLIS
         }
         for (int row=0; row<board.getNumRows(); row++) {
             for (int col=0; col<board.getNumCols(); col++) {
+                final String modifier;
+                if (squaresHeld.contains(new Square(row, col))) {
+                    modifier = "my ";
+                } else {
+                    modifier = "up ";
+                }
+                
                 Square sq = new Square(row, col);
                 if (emptySquares.contains(sq)) {
                     response += "none\n";
