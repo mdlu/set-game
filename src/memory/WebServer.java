@@ -183,6 +183,26 @@ public class WebServer {
     }
     
     /**
+     * Outputs the scores and votes of the current players, as specified by the API.
+     * @return the String representation
+     */
+    private String scoreResponse() {
+        Set<String> votes = board.getVotes();
+        Map<String, Integer> scores = board.getScores();
+        String scoreString = "";
+        for (String player: scores.keySet()) {
+            String vote;
+            if (votes.contains(player)) {
+                vote = "add";
+            } else {
+                vote = "none";
+            }
+            scoreString += player + " " + scores.get(player) + " " + vote + "\n";
+        }
+        return scoreString;
+    }
+    
+    /**
      * Handles the /look/player route. Sends a response showing the board, formatted as described 
      * in the grammar in the API, or reports "Your player name ID contains non-alphanumeric characters." 
      * if the playerID is not alphanumeric.
@@ -332,19 +352,7 @@ public class WebServer {
             }
             board.vote(playerID);
             
-            Set<String> votes = board.getVotes();
-            Map<String, Integer> scores = board.getScores();
-            String scoreString = "";
-            for (String player: scores.keySet()) {
-                String vote;
-                if (votes.contains(player)) {
-                    vote = "add";
-                } else {
-                    vote = "none";
-                }
-                scoreString += player + " " + scores.get(player) + " " + vote + "\n";
-            }
-            response = scoreString;
+            response = scoreResponse();
         } else {
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your player name ID contains non-alphanumeric characters.";
@@ -377,19 +385,7 @@ public class WebServer {
         final String response;
         if (params.length() == 0) {
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
-            Set<String> votes = board.getVotes();
-            Map<String, Integer> scores = board.getScores();
-            String scoreString = "";
-            for (String player: scores.keySet()) {
-                String vote;
-                if (votes.contains(player)) {
-                    vote = "add";
-                } else {
-                    vote = "none";
-                }
-                scoreString += player + " " + scores.get(player) + " " + vote + "\n";
-            }
-            response = scoreString;
+            response = scoreResponse();
         } else {
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "There should be no additional characters following /scores in the request.";

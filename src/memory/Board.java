@@ -187,10 +187,17 @@ public class Board {
      * @return whether the two have the same value
      */
     private boolean sameValue(Board that) {
-        // TODO update once all fields finalized
         return this.gameBoard.equals(that.gameBoard) 
                 && this.scores.equals(that.scores)
-                && this.cardsRemaining.equals(that.cardsRemaining);
+                && this.cardsRemaining.equals(that.cardsRemaining)
+                && this.activePlayer.equals(that.activePlayer)
+                && this.votes.equals(that.votes)
+                && this.declareQueue.equals(that.declareQueue)
+                && this.timeOut == that.timeOut
+                && this.defaultColumns == that.defaultColumns
+                && this.executor.equals(that.executor)
+                && this.result.equals(that.result)
+                && this.listeners.equals(that.listeners);
     }
     
     @Override
@@ -301,7 +308,7 @@ public class Board {
      * Adds a listener to the Board.
      * @param listener called when the Board changes
      */
-    public void addBoardListener(BoardListener listener) {
+    public synchronized void addBoardListener(BoardListener listener) {
         synchronized (listeners) {
             listeners.add(listener);
         }
@@ -311,13 +318,13 @@ public class Board {
      * Removes a listener from the Board.
      * @param listener which will no longer be called when the Board changes
      */
-    public void removeBoardListener(BoardListener listener) {
+    public synchronized void removeBoardListener(BoardListener listener) {
         synchronized (listeners) {
             listeners.remove(listener);
         }
     }
     
-    private void callListeners() {
+    private synchronized void callListeners() {
         for (BoardListener listener: Set.copyOf(listeners)) {
             listener.boardChanged();
         }
@@ -336,14 +343,18 @@ public class Board {
      * @return whether the three given cards is a set
      */
     public synchronized boolean checkSet() {
-        Card card1 = getCard(squaresHeld.get(0));
-        Card card2 = getCard(squaresHeld.get(1));
-        Card card3 = getCard(squaresHeld.get(2));
-        int colors = new HashSet<Card.Color>(Arrays.asList(card1.color(), card2.color(), card3.color())).size();
-        int numbers = new HashSet<Card.Number>(Arrays.asList(card1.number(), card2.number(), card3.number())).size();
-        int shadings = new HashSet<Card.Shading>(Arrays.asList(card1.shading(), card2.shading(), card3.shading())).size();
-        int shapes = new HashSet<Card.Shape>(Arrays.asList(card1.shape(), card2.shape(), card3.shape())).size();
-        return (colors*numbers*shadings*shapes)%2 != 0; // the sets should all be either of size 1 or size 3
+        Set<Card.Color> colors = new HashSet<>();
+        Set<Card.Number> numbers = new HashSet<>();
+        Set<Card.Shading> shadings = new HashSet<>();
+        Set<Card.Shape> shapes = new HashSet<>();
+        for (int i=0; i<squaresHeld.size(); i++) {
+            Card card = getCard(squaresHeld.get(i));
+            colors.add(card.color());
+            numbers.add(card.number());
+            shadings.add(card.shading());
+            shapes.add(card.shape());
+        }
+        return (colors.size()*numbers.size()*shadings.size()*shapes.size())%2 != 0; // the sets should all be either of size 1 or size 3
     }
     
     /**
@@ -371,7 +382,6 @@ public class Board {
             scheduleTimeout();
         }
         callListeners();
-        // TODO update for controlling time limits?
     }
     
     /**
@@ -381,7 +391,6 @@ public class Board {
     public synchronized String getDeclarer() {
         return activePlayer;
     }
-    
     
     /**
      * Retrieves the Unix timestamp at which the declare will time out.
@@ -485,7 +494,6 @@ public class Board {
     public synchronized int numPlayers() {
         return scores.keySet().size();
     }
-    
     
     /**
      * Executes if the player has run out of time to find a set.
