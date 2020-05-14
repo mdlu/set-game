@@ -23,13 +23,15 @@
 ### Playing on the web
 ```
 REQUEST ::= "/look/" PLAYER
-          | "/flip/" PLAYER "/" ROW "," COLUMN
+          | "/declare/" PLAYER
+          | "/pick/" PLAYER "/" ROW "," COLUMN
+          | "/add/" PLAYER
           | "/scores"
           | "/watch/" PLAYER
 
 RESPONSE ::= BOARD | SCORES
 BOARD ::= ROW "x" COLUMN NEWLINE DECLARE NEWLINE (SPOT NEWLINE)+
-SCORES ::= (PLAYER " " INT NEWLINE)*
+SCORES ::= (PLAYER " " INT " " VOTE NEWLINE)*
 
 PLAYER ::= [\w]+
 DECLARE ::= "none" | "up " MILLIS | "my " MILLIS
@@ -39,11 +41,14 @@ CARD ::= [^\s\n\r]+
 ROW ::= INT
 COLUMN ::= INT
 INT ::= [0-9]+
+VOTE ::= "none" | "add"
 NEWLINE ::= "\n" | "\r" "\n"?
 ```
 
-For `/look/...`, `/flip/...`, and `/watch/...` requests, the server responds with `BOARD`, the current board. In the response, `ROW` is the number of rows, `COLUMN` is the number of columns, `DECLARE` is the declare state, and the cards are listed reading across each row, starting with the top row
+For `/look/...`, `/declare/...`, `/pick/...`, and `/watch/...` requests, the server responds with `BOARD`, the current board. In the response, `ROW` is the number of rows, `COLUMN` is the number of columns, `DECLARE` is the declare state, and the cards are listed reading across each row, starting with the top row.
 
 `none` indicates no player is declaring a set, `up` indicates another player is declaring a set, and `my` indicates a set is being declared by the player who sent the request. `MILLIS` gives, in Unix time, the time stamp at which the declare will time out.
 
 `none` indicates no card in that location, `up` indicates a face-up card controlled by another player (or by no one), and `my` is a face-up card controlled by the player who sent the request.
+
+For `/scores` and `/add/...` requests, the server responds with `SCORES`, the current scores. In the response, each `PLAYER` is a unique player ID and `INT` is their nonnegative score and `VOTE` is their vote state. `none` indicates the player has not voted and `add` indicates the player votes to add cards to the board.
