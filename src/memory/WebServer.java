@@ -12,6 +12,7 @@ import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 
 import com.sun.net.httpserver.Filter;
@@ -37,6 +38,9 @@ public class WebServer {
     private final HttpServer server;
     private final Board board;
     
+    // TODO update this if we want to be thorough
+    // TODO DRY out this code
+    // TODO might not be threadsafe, interleaving between actions and calls to boardResponse()
     /* Abstraction function:
      *    AF(server, board): a game of Memory Scramble serviced by server and with a current
      *        game state represented by board
@@ -139,22 +143,35 @@ public class WebServer {
     }
     
     /**
-     * Converts a board into the proper String representation to send as an HTTP response, 
-     * as specified in the pset 4 handout.
+     * Converts a board into the proper String representation to send as an HTTP response.
+     * @param playerID the unique ID of the player
      * @return the String representation
      */
-    private String boardResponse() {
+    private String boardResponse(String playerID) {
         List<Square> emptySquares = board.getEmptySquares();
         List<Square> squaresHeld = board.getSquaresHeld();
+        String declarer = board.getDeclarer();
+        
+        final String modifier;
+        if (declarer.equals(playerID)) {
+            modifier = "my ";
+        } else {
+            modifier = "up ";
+        }
         
         String response = board.getNumRows()+"x"+board.getNumCols()+"\n";
+        if (declarer.equals("")) {
+            response += "none\n";
+        } else {
+            response += modifier + "\n"; // TODO update with MILLIS
+        }
         for (int row=0; row<board.getNumRows(); row++) {
             for (int col=0; col<board.getNumCols(); col++) {
                 Square sq = new Square(row, col);
                 if (emptySquares.contains(sq)) {
-                    response += "gone\n";
+                    response += "none\n";
                 } else if (squaresHeld.contains(sq)) {
-                    response += "active " + board.getCard(sq).toString() + "\n";
+                    response += modifier + board.getCard(sq).toString() + "\n";
                 } else {
                     response += board.getCard(sq).toString() + "\n";
                 }
@@ -165,7 +182,7 @@ public class WebServer {
     
     /**
      * Handles the /look/player route. Sends a response showing the board, formatted as described 
-     * in the grammar in the pset4 instructions, or reports "Your player name ID contains non-alphanumeric characters." 
+     * in the grammar in the API, or reports "Your player name ID contains non-alphanumeric characters." 
      * if the playerID is not alphanumeric.
      * @param exchange the HttpExchange used
      * @throws IOException
@@ -186,7 +203,10 @@ public class WebServer {
             // - response length 0 means a response will be written
             // - you must call this method before calling getResponseBody()
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
-            response = boardResponse();
+            if (!board.isPlayer(player)) {
+                board.addPlayer(player);
+            }
+            response = boardResponse(player);
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
@@ -229,7 +249,7 @@ public class WebServer {
                 board.addPlayer(playerID);
             }
             board.declareSet(playerID);
-            response = boardResponse();
+            response = boardResponse(playerID);
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
@@ -249,7 +269,7 @@ public class WebServer {
     
     /**
      * Handles the /pick/player/row,column route. Attempts to flip the card at (row, column) for the given player.
-     * Sends a response showing the board, formatted as described in the grammar in the pset4 instructions, or reports 
+     * Sends a response showing the board, formatted as described in the API, or reports 
      * "Your requested pick was not valid." if the request was not formatted correctly or specified an out-of-bounds
      * square, or reports "Your requested flip was interrupted." in case of an InterruptedException.
      * @param exchange the HttpExchange used
@@ -283,7 +303,7 @@ public class WebServer {
             try {
                 board.pickCard(square, playerID);
                 exchange.sendResponseHeaders(SUCCESS_CODE, 0);
-                response = boardResponse();
+                response = boardResponse(playerID);
             } catch (InterruptedException e) {
                 exchange.sendResponseHeaders(ERROR_CODE, 0);
                 response = "Your requested pick was interrupted.";
@@ -332,8 +352,21 @@ public class WebServer {
             if (!board.isPlayer(playerID)) {
                 board.addPlayer(playerID);
             }
-            board.addCards();
-            response = boardResponse();
+            board.vote(playerID);
+            
+            Set<String> votes = board.getVotes();
+            Map<String, Integer> scores = board.getScores();
+            String scoreString = "";
+            for (String player: scores.keySet()) {
+                String vote;
+                if (votes.contains(player)) {
+                    vote = "add";
+                } else {
+                    vote = "none";
+                }
+                scoreString += player + " " + scores.get(player) + " " + vote + "\n";
+            }
+            response = scoreString;
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);
@@ -353,7 +386,7 @@ public class WebServer {
     
     /**
      * Handles the /scores route. Returns a list of the current scores of each player in the game,
-     * formatted as specified in the pset4 instructions, or reports that "There should be no additional 
+     * formatted as specified in the API, or reports that "There should be no additional 
      * characters following /scores in the request." if the GET request contains any extraneous information
      * beyond the /scores path.
      * @param exchange the HttpExchange used
@@ -426,7 +459,7 @@ public class WebServer {
                     e.printStackTrace();
                 }
             }
-            response = boardResponse();
+            response = boardResponse(player);
         } else {
             // otherwise, respond with HTTP code 404 to indicate an error
             exchange.sendResponseHeaders(ERROR_CODE, 0);

@@ -21,31 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Board {
     
     /**
-     * Make a new board by parsing a file.
-     * 
-     * @param filename path to a game board file
-     * @return a new board with the size and cards from the given file
-     * @throws IOException if an error occurs reading or parsing the file
-     */
-//    public static Board parseFromFile(String filename) throws IOException {
-//        List<List<String>> squares = new ArrayList<>();
-//        BufferedReader in = new BufferedReader(new FileReader(filename));
-//        String dimensions = in.readLine();
-//        String[] dims = dimensions.split("x");
-//        int rows = Integer.parseInt(dims[0]);
-//        int cols = Integer.parseInt(dims[1]);
-//        for (int r=0; r<rows; r++) {
-//            List<String> newRow = new ArrayList<>();
-//            for (int c=0; c<cols; c++) {
-//                newRow.add(in.readLine());
-//            }
-//            squares.add(newRow);
-//        }
-//        in.close();
-//        return new Board(squares);
-//    }
-    
-    /**
      * Returns a shuffled list of all cards in the deck.
      * 
      * @param attributes the number of attributes a card should have (currently supports 3, 4)
@@ -76,7 +51,7 @@ public class Board {
     
     /** A listener for the Board. */
     public interface BoardListener {
-        /** Called when the Board changes, as defined in the pset4 specification.
+        /** Called when the Board changes: when someone declares a set, and when cards are removed or added.
           */
         public void boardChanged(); 
     }
@@ -88,9 +63,11 @@ public class Board {
     private String activePlayer;
     private List<Square> squaresHeld;
     private List<Square> emptySquares;
+    private Set<String> votes;
     
     private Set<BoardListener> listeners = new HashSet<>();
     
+    // TODO complete this section if we want to be thorough
     /* Abstraction function:
      *    AF(gameBoard, scores, heldSquares, isFirst, squareStates, squareQueues, listeners) = 
      *      a game of Memory Scramble with dimensions gameBoard.size() by gameBoard.get(0).size(),
@@ -162,32 +139,10 @@ public class Board {
         activePlayer = "";
         squaresHeld = Collections.synchronizedList(new ArrayList<>());
         emptySquares = Collections.synchronizedList(new ArrayList<>());
-
+        votes = Collections.synchronizedSet(new HashSet<>());
+        
         checkRep();
     }
-    
-    /**
-     * Constructor to make a new Board that has not been played on, by copying the card layout of another Board.
-     * @param that the Board to copy from 
-     */
-//    public Board(Board that) {
-//        gameBoard = Collections.synchronizedList(new ArrayList<>(that.gameBoard));
-//        scores = new ConcurrentHashMap<>();
-//        squareStates = new ConcurrentHashMap<>();
-//        heldSquares = new ConcurrentHashMap<>();
-//        squareQueues = new ConcurrentHashMap<>();
-//        isFirst = new ConcurrentHashMap<>();
-//        
-//        int rows = gameBoard.size();
-//        int cols = gameBoard.get(0).size();
-//        for (int r=1; r<=rows; r++) {
-//            for (int c=1; c<=cols; c++) {
-//                squareStates.put(new Square(r,c), State.DOWN);
-//                squareQueues.put(new Square(r,c), new ArrayBlockingQueue<>(1));
-//            }
-//        }
-//        checkRep();
-//    }
     
     /**
      * Assert the representation invariant is true.
@@ -241,7 +196,7 @@ public class Board {
      * @param playerID a unique ID for a particular player
      * @return true if the player was added successfully, false if the playerID has been already taken
      */
-    public boolean addPlayer(String playerID) {
+    public synchronized boolean addPlayer(String playerID) {
         synchronized (scores) {
             if (scores.containsKey(playerID)) {
                 return false;
@@ -257,7 +212,7 @@ public class Board {
      * @param playerID a unique ID for a player
      * @return whether the player is playing
      */
-    public boolean isPlayer(String playerID) {
+    public synchronized boolean isPlayer(String playerID) {
         return scores.containsKey(playerID);
     }
     
@@ -318,31 +273,6 @@ public class Board {
         gameBoard.get(square.getRow()).set(square.getCol(), card);
     }
     
-    /**
-     * Gets a copy of the current board.
-     * @return returns the current board, with only the text of the cards; does not return any player data or card states
-     */
-//    public Board getBoard() {
-//        return new Board(gameBoard);
-//    }
-    
-//    /**
-//     * Returns the state of a given square.
-//     * @param square the square's state to be queried
-//     * @return the square's current state
-//     */
-//    public State getSquareState(Square square) {
-//        return squareStates.get(square);
-//    }
-
-//    /**
-//     * Returns the current square states.
-//     * @return a copy of the current states of the squares in the board
-//     */
-//    public Map<Square, State> getSquareStates() {
-//        return new HashMap<Square, State>(squareStates);
-//    }
-
     /**
      * Returns the squares currently being held by a player.
      * @return a copy of the list of squares held
@@ -422,6 +352,14 @@ public class Board {
     }
     
     /**
+     * Retrieves the player currently finding a Set.
+     * @return the current declarer
+     */
+    public synchronized String getDeclarer() {
+        return activePlayer;
+    }
+    
+    /**
      * Executes the replacement of three cards once they're found.
      */
     public synchronized void replaceCards() {
@@ -452,6 +390,34 @@ public class Board {
     }
     
     /**
+     * Allows a player to vote to add 3 more cards.
+     * @param playerID the unique ID of the player
+     */
+    public synchronized void vote(String playerID) {
+        votes.add(playerID);
+        if (votes.size() == numPlayers()) { // adds cards if all players agree
+            addCards();
+            votes.clear();
+        }
+    }
+    
+    /**
+     * Gives the votes that have been cast for adding 3 more cards.
+     * @return a copy of the set of votes
+     */
+    public synchronized Set<String> getVotes() {
+        return new HashSet<>(votes);
+    }
+    
+    /**
+     * Finds how many players are playing.
+     * @return the number of players in the game
+     */
+    public synchronized int numPlayers() {
+        return scores.keySet().size();
+    }
+    
+    /**
      * Performs the selection of a card by a particular player, according to the rules of Set.
      * @param square the coordinates of the card the player wants to flip
      * @param playerID the unique of the player
@@ -479,6 +445,7 @@ public class Board {
             int score = scores.get(playerID);
             if (checkSet()) {
                 scores.put(playerID, score + pointsWon);
+                votes.clear(); // TODO consider if other things need to be cleared when a set is found
                 replaceCards();
                 
                 callListeners();
