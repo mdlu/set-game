@@ -148,44 +148,38 @@ public class WebServer {
      * @return the String representation
      */
     private String boardResponse(String playerID) {
-        List<Square> squaresHeld = board.getSquaresHeld();
-        String declarer = board.getDeclarer();
-        
-        String response = board.getNumRows()+"x"+board.getNumCols()+"\n";
-        if (declarer.equals("")) {
-            response += "none\n";
-        } else {
-          final String modifier;
-          if (declarer.equals(playerID)) {
-              modifier = "my ";
-          } else {
-              modifier = "up ";
-          }
-            response += modifier + "\n"; // TODO update with MILLIS
-        }
-        for (int row=0; row<board.getNumRows(); row++) {
-            for (int col=0; col<board.getNumCols(); col++) {
-                final String modifier;
-                if (squaresHeld.contains(new Square(row, col))) {
-                    modifier = "my ";
-                } else {
-                    modifier = "up ";
-                }
-                
-                Square sq = new Square(row, col);
-//                if (emptySquares.contains(sq)) {
-//                    response += "none\n";
-//                } else if (squaresHeld.contains(sq)) {
-//                    response += modifier + board.getCard(sq).toString() + "\n";
-//                } else {
-//                    response += board.getCard(sq).toString() + "\n";
-//                }
-//                } else {
-                response += modifier + board.getCard(sq).toString() + "\n";
-//                }                
+        synchronized (board) {
+            List<Square> squaresHeld = board.getSquaresHeld();
+            String declarer = board.getDeclarer();
+            
+            String response = board.getNumRows()+"x"+board.getNumCols()+"\n";
+            if (declarer.equals("")) {
+                response += "none\n";
+            } else {
+              final String modifier;
+              if (declarer.equals(playerID)) {
+                  modifier = "my ";
+              } else {
+                  modifier = "up ";
+              }
+              final long millis = board.getTimeout();
+              response += modifier + millis + "\n"; 
             }
+            for (int row=0; row<board.getNumRows(); row++) {
+                for (int col=0; col<board.getNumCols(); col++) {
+                    final String modifier;
+                    if (squaresHeld.contains(new Square(row, col))) {
+                        modifier = "my ";
+                    } else {
+                        modifier = "up ";
+                    }
+                    
+                    Square sq = new Square(row, col);
+                    response += modifier + board.getCard(sq).toString() + "\n";             
+                }
+            }
+            return response;
         }
-        return response;
     }
     
     /**
@@ -416,10 +410,17 @@ public class WebServer {
             // - response length 0 means a response will be written
             // - you must call this method before calling getResponseBody()
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
+            Set<String> votes = board.getVotes();
             Map<String, Integer> scores = board.getScores();
             String scoreString = "";
             for (String player: scores.keySet()) {
-                scoreString += player + " " + scores.get(player) + "\n";
+                String vote;
+                if (votes.contains(player)) {
+                    vote = "add";
+                } else {
+                    vote = "none";
+                }
+                scoreString += player + " " + scores.get(player) + " " + vote + "\n";
             }
             response = scoreString;
         } else {

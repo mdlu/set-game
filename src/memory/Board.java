@@ -63,6 +63,7 @@ public class Board {
     private String activePlayer;
     private List<Square> squaresHeld;
     private Set<String> votes;
+    private long timeOut;
     
     private Set<BoardListener> listeners = new HashSet<>();
     
@@ -337,6 +338,11 @@ public class Board {
             return;
         } else {
             activePlayer = playerID;
+            final long timeLimit = 5L;
+            final long conversion = 1000L;
+            timeOut = (System.currentTimeMillis() / conversion) + timeLimit; // gives 5 seconds to answer correctly
+            
+            callListeners();
         }
         // TODO update for controlling time limits?
     }
@@ -349,6 +355,14 @@ public class Board {
         return activePlayer;
     }
     
+    
+    /**
+     * Retrieves the Unix timestamp at which the declare will time out.
+     * @return the timeout time, as a Unix timestamp
+     */
+    public synchronized long getTimeout() {
+        return timeOut;
+    }
     
     /**
      * Executes the condensing of 3 x (n+1) cards to 3 x n when n>4 and a Set is found.
@@ -379,7 +393,8 @@ public class Board {
             }
             gameBoard.set(i, newRow);
         }
-        System.out.println(gameBoard);
+        
+//        System.out.println(gameBoard); // debugging
     }
     
     /**
@@ -397,6 +412,7 @@ public class Board {
                 setCard(sq, newCard);
             }
         }
+        callListeners();
     }
     
     /**
@@ -404,9 +420,9 @@ public class Board {
      */
     public synchronized void addCards() {
         final int rows = 3;
-        if (cardsRemaining.size() == 0) { // can't add more cards if none left
-            return; 
-        }
+//        if (cardsRemaining.size() == 0) { // can't add more cards if none left
+//            return; 
+//        }
         for (int row=0; row<rows; row++) {
             Card newCard = cardsRemaining.removeFirst();
             gameBoard.get(row).add(newCard);
@@ -418,10 +434,14 @@ public class Board {
      * @param playerID the unique ID of the player
      */
     public synchronized void vote(String playerID) {
+        if (cardsRemaining.size() == 0) { // shouldn't be able to add more cards if there are none left
+            return; 
+        }
         votes.add(playerID);
         if (votes.size() == numPlayers()) { // adds cards if all players agree
             addCards();
             votes.clear();
+            callListeners();
         }
     }
     
