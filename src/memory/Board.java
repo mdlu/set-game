@@ -11,8 +11,13 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * ADT representing a Set game board.
@@ -58,16 +63,22 @@ public class Board {
     
     private static final int DEFAULT_ROWS = 3;
     private static final int SET_SIZE = 3;
+    private static final long TIME_LIMIT = 5L;
+    private static final long CONVERSION = 1000L;
     
     private List<List<Card>> gameBoard;
     private Map<String, Integer> scores;
-    private LinkedList<Card> cardsRemaining;
+    private Queue<Card> cardsRemaining;
     
     private String activePlayer;
     private List<Square> squaresHeld;
     private Set<String> votes;
+    private Queue<String> declareQueue;
     private long timeOut;
     private final int defaultColumns;
+    
+    private ScheduledExecutorService executor;
+    private ScheduledFuture<?> result;
     
     private Set<BoardListener> listeners = new HashSet<>();
     
@@ -142,6 +153,8 @@ public class Board {
         activePlayer = "";
         squaresHeld = Collections.synchronizedList(new ArrayList<>());
         votes = Collections.synchronizedSet(new HashSet<>());
+        declareQueue = new LinkedList<>();
+        executor = Executors.newSingleThreadScheduledExecutor();
         
         checkRep();
     }
@@ -204,6 +217,7 @@ public class Board {
                 return false;
             }
             scores.put(playerID, 0);
+            callListeners();
             checkRep();
             return true;
         }
@@ -332,21 +346,31 @@ public class Board {
         return (colors*numbers*shadings*shapes)%2 != 0; // the sets should all be either of size 1 or size 3
     }
     
+    /**
+     * Schedule a time limit for a player to declare a set.
+     */
+    public void scheduleTimeout() {
+        result = executor.schedule(new Runnable () {
+            public void run() {
+                timedOut(activePlayer);
+            }
+        }, TIME_LIMIT, TimeUnit.SECONDS);
+    }
+    
     /** 
      * Allows a player to declare they've foud a set, giving them rights to start picking 3 cards.
      * @param playerID the unique ID of the player
      */
     public synchronized void declareSet(String playerID) {
         if (!activePlayer.equals("")) { // another player is currently selecting cards
+            declareQueue.add(playerID);
             return;
         } else {
             activePlayer = playerID;
-            final long timeLimit = 5L;
-            final long conversion = 1000L;
-            timeOut = (System.currentTimeMillis() / conversion) + timeLimit; // gives 5 seconds to answer correctly
-            
-            callListeners();
+            resetTimeout();
+            scheduleTimeout();
         }
+        callListeners();
         // TODO update for controlling time limits?
     }
     
@@ -365,6 +389,13 @@ public class Board {
      */
     public synchronized long getTimeout() {
         return timeOut;
+    }
+    
+    /**
+     * Resets the timeout time to the current time, plus 5 seconds.
+     */
+    public synchronized void resetTimeout() {
+        timeOut = (System.currentTimeMillis() / CONVERSION) + TIME_LIMIT; // gives 5 seconds to answer correctly
     }
     
     /**
@@ -406,7 +437,7 @@ public class Board {
         } else {
             for (int i=0; i<SET_SIZE; i++) {
                 Square sq = squaresHeld.get(i);
-                Card newCard = cardsRemaining.removeFirst();
+                Card newCard = cardsRemaining.remove();
                 setCard(sq, newCard);
             }
         }
@@ -418,7 +449,7 @@ public class Board {
      */
     public synchronized void addCards() {
         for (int row=0; row<DEFAULT_ROWS; row++) {
-            Card newCard = cardsRemaining.removeFirst();
+            Card newCard = cardsRemaining.remove();
             gameBoard.get(row).add(newCard);
         }
     }
@@ -435,8 +466,8 @@ public class Board {
         if (votes.size() == numPlayers()) { // adds cards if all players agree
             addCards();
             votes.clear();
-            callListeners();
         }
+        callListeners();
     }
     
     /**
@@ -455,6 +486,27 @@ public class Board {
         return scores.keySet().size();
     }
     
+    
+    /**
+     * Executes if the player has run out of time to find a set.
+     * @param playerID the unique ID of the player
+     */
+    public synchronized void timedOut(String playerID) {
+        int score = scores.get(playerID);
+        final int pointsLost = 5;
+        scores.put(playerID, score-pointsLost);
+        
+        squaresHeld.clear();
+        if (declareQueue.size() > 0) {
+            activePlayer = declareQueue.remove();
+            resetTimeout();
+            scheduleTimeout();
+        } else {
+            activePlayer = "";
+        }
+        callListeners();
+    }
+    
     /**
      * Performs the selection of a card by a particular player, according to the rules of Set.
      * @param square the coordinates of the card the player wants to flip
@@ -470,25 +522,31 @@ public class Board {
         }
         
         squaresHeld.add(square);
-        callListeners();
         
         final int pointsWon = 10; // gain 10 points for a correct set
         final int pointsLost = 5; // lose 5 points for an incorrect set
         
         if (squaresHeld.size() == SET_SIZE) {
+            result.cancel(false);
             int score = scores.get(playerID);
             if (checkSet()) {
                 scores.put(playerID, score + pointsWon);
-                votes.clear(); // TODO consider if other things need to be cleared when a set is found
+                votes.clear();
+                declareQueue.clear();
+                activePlayer = "";
                 replaceCards();
             } else {
                 scores.put(playerID, score - pointsLost);
+                if (declareQueue.size() > 0) {
+                    activePlayer = declareQueue.remove();
+                    resetTimeout();
+                } else {
+                    activePlayer = "";
+                }
             }
             // reset the board so the next player can find a Set
             squaresHeld.clear();
-            activePlayer = "";
         }
-        
-        checkRep();
+        callListeners();
     }
 }

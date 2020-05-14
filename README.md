@@ -6,7 +6,7 @@
 - /pick/player/row,col for a player to pick a card on the board (zero-indexed)
 - /add/player to add 3 cards to the board
 - /scores to see current scores
-- /watch blocks until a card is clicked, cards are removed or replaced, cards are added, or someone declares a set
+- /watch blocks until a new player joins, a card is clicked, cards are removed or replaced, cards are added, or someone declares a set
 
 #### Card:
 A card in Set has four basic attributes:
