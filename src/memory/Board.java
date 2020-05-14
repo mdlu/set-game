@@ -62,7 +62,6 @@ public class Board {
     
     private String activePlayer;
     private List<Square> squaresHeld;
-    private List<Square> emptySquares;
     private Set<String> votes;
     
     private Set<BoardListener> listeners = new HashSet<>();
@@ -138,7 +137,6 @@ public class Board {
         cardsRemaining = new LinkedList<>(cardsCopy.subList(rows*cols, cardsCopy.size()));
         activePlayer = "";
         squaresHeld = Collections.synchronizedList(new ArrayList<>());
-        emptySquares = Collections.synchronizedList(new ArrayList<>());
         votes = Collections.synchronizedSet(new HashSet<>());
         
         checkRep();
@@ -282,14 +280,6 @@ public class Board {
     }
     
     /**
-     * Returns the empty squares on the board.
-     * @return a copy of the list of empty squares
-     */
-    public synchronized List<Square> getEmptySquares() {
-        return new ArrayList<>(emptySquares);
-    }
-    
-    /**
      * Adds a listener to the Board.
      * @param listener called when the Board changes
      */
@@ -359,13 +349,47 @@ public class Board {
         return activePlayer;
     }
     
+    
+    /**
+     * Executes the condensing of 3 x (n+1) cards to 3 x n when n>4 and a Set is found.
+     */
+    public synchronized void condenseCards() {
+        final int numCards = 3;
+        List<Card> cardsHeld = new ArrayList<>();
+        int cols = getNumCols();
+        
+        for (int i=0; i<numCards; i++) {
+            Square sq = squaresHeld.get(i);
+            Card card = getCard(sq);
+            cardsHeld.add(card);
+        }
+        
+        List<Card> allCards = new ArrayList<>();
+        for (int i=0; i<numCards; i++) { // remove the 3 cards found in the Set
+            gameBoard.get(i).removeAll(cardsHeld);
+            allCards.addAll(gameBoard.get(i));
+        }
+        
+        int counter = 0;
+        for (int i=0; i<numCards; i++) {
+            List<Card> newRow = Collections.synchronizedList(new ArrayList<>());
+            for (int j=0; j<cols-1; j++) {
+                newRow.add(allCards.get(counter));
+                counter += 1;
+            }
+            gameBoard.set(i, newRow);
+        }
+        System.out.println(gameBoard);
+    }
+    
     /**
      * Executes the replacement of three cards once they're found.
      */
     public synchronized void replaceCards() {
         final int numCards = 3;
-        if (cardsRemaining.size() == 0) {
-            emptySquares.addAll(squaresHeld);
+        final int defaultColumns = 4;
+        if (cardsRemaining.size() == 0 || getNumCols() > defaultColumns) {
+            condenseCards();
         } else {
             for (int i=0; i<numCards; i++) {
                 Square sq = squaresHeld.get(i);

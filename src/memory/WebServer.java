@@ -148,16 +148,8 @@ public class WebServer {
      * @return the String representation
      */
     private String boardResponse(String playerID) {
-        List<Square> emptySquares = board.getEmptySquares();
         List<Square> squaresHeld = board.getSquaresHeld();
         String declarer = board.getDeclarer();
-        
-//        final String modifier;
-//        if (declarer.equals(playerID)) {
-//            modifier = "my ";
-//        } else {
-//            modifier = "up ";
-//        }
         
         String response = board.getNumRows()+"x"+board.getNumCols()+"\n";
         if (declarer.equals("")) {
@@ -181,16 +173,16 @@ public class WebServer {
                 }
                 
                 Square sq = new Square(row, col);
-                if (emptySquares.contains(sq)) {
-                    response += "none\n";
+//                if (emptySquares.contains(sq)) {
+//                    response += "none\n";
 //                } else if (squaresHeld.contains(sq)) {
 //                    response += modifier + board.getCard(sq).toString() + "\n";
 //                } else {
 //                    response += board.getCard(sq).toString() + "\n";
 //                }
-                } else {
-                    response += modifier + board.getCard(sq).toString() + "\n";
-                }                
+//                } else {
+                response += modifier + board.getCard(sq).toString() + "\n";
+//                }                
             }
         }
         return response;
