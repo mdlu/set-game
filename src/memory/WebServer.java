@@ -170,11 +170,14 @@ public class WebServer {
                 Square sq = new Square(row, col);
                 if (emptySquares.contains(sq)) {
                     response += "none\n";
-                } else if (squaresHeld.contains(sq)) {
-                    response += modifier + board.getCard(sq).toString() + "\n";
+//                } else if (squaresHeld.contains(sq)) {
+//                    response += modifier + board.getCard(sq).toString() + "\n";
+//                } else {
+//                    response += board.getCard(sq).toString() + "\n";
+//                }
                 } else {
-                    response += board.getCard(sq).toString() + "\n";
-                }
+                    response += modifier + board.getCard(sq).toString() + "\n";
+                }                
             }
         }
         return response;
