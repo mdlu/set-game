@@ -35,7 +35,7 @@ SCORES ::= (PLAYER " " INT " " VOTE NEWLINE)*
 
 PLAYER ::= [\w]+
 DECLARE ::= "none" | "up " MILLIS | "my " MILLIS
-SPOT ::= "none" | "up " CARD | "my " 
+SPOT ::= "none" | "up " CARD | "my " CARD
 MILLIS ::= INT
 CARD ::= [^\s\n\r]+
 ROW ::= INT
