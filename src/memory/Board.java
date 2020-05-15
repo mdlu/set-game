@@ -63,8 +63,8 @@ public class Board {
     
     private static final int DEFAULT_ROWS = 3;
     private static final int SET_SIZE = 3;
-    private static final long TIME_LIMIT = 5L;
-    private static final long CONVERSION = 1000L;
+    private static final long TIME_LIMIT_IN_MILLIS = 5000L;
+//    private static final long CONVERSION = 1000L;
     
     private List<List<Card>> gameBoard;
     private Map<String, Integer> scores;
@@ -365,7 +365,7 @@ public class Board {
             public void run() {
                 timedOut(activePlayer);
             }
-        }, TIME_LIMIT, TimeUnit.SECONDS);
+        }, TIME_LIMIT_IN_MILLIS, TimeUnit.MILLISECONDS);
     }
     
     /** 
@@ -404,7 +404,8 @@ public class Board {
      * Resets the timeout time to the current time, plus 5 seconds.
      */
     public synchronized void resetTimeout() {
-        timeOut = (System.currentTimeMillis() / CONVERSION) + TIME_LIMIT; // gives 5 seconds to answer correctly
+//        timeOut = (System.currentTimeMillis() / CONVERSION) + TIME_LIMIT; // gives 5 seconds to answer correctly
+        timeOut = System.currentTimeMillis() + TIME_LIMIT_IN_MILLIS; // gives 5 seconds to answer correctly
     }
     
     /**
