@@ -372,7 +372,7 @@ public class Board {
      * @param playerID the unique ID of the player
      */
     public synchronized void declareSet(String playerID) {
-        if (activePlayer.equals(playerID)) { // clicking declare while declaring does nothing
+        if (activePlayer.equals(playerID) || declareQueue.contains(playerID)) { // clicking declare while declaring does nothing
             return; 
         } else if (!activePlayer.equals("")) { // another player is currently selecting cards
             declareQueue.add(playerID);
