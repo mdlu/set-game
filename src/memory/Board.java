@@ -26,14 +26,31 @@ import java.util.concurrent.TimeUnit;
 public class Board {
     
     /**
-     * Returns a shuffled list of all cards in the deck.
+     * Returns a board with a shuffled list of all cards in the deck..
      * 
      * @param attributes the number of attributes a card should have (currently supports 3, 4)
-     * @return a shuffled list of all possible combinations of attributes, each combination representing a card
+     * @return a Board with a shuffled list of all possible combinations of attributes, each combination representing a card
      */
     public static Board generateRandom(int attributes) {
-        
+        List<Card> cards = generateRandomCards(attributes);
+        return new Board(cards, attributes);
+    }
+    
+    /**
+     * Returns a shuffled list of all cards in the deck.
+     * @param attributes the number of attributes a card should have
+     * @return a shuffled list of all possible combinations of attirbutes
+     */
+    public static List<Card> generateRandomCards(int attributes) {
         List<Card> cards = new ArrayList<>();
+        
+        // TODO attempt at avoiding magic numbers
+//        int numCards = 3;
+//        int[] indices = {numCards, numCards, numCards, numCards};
+//        
+//        for(int i=attributes; i<indices.length; i++) {
+//            indices[i] = 1;
+//        }
         
         for (Card.Color color: Card.Color.values()) {
             for (Card.Number number: Card.Number.values()) {
@@ -50,7 +67,7 @@ public class Board {
         }
         
         Collections.shuffle(cards);
-        return new Board(cards, attributes);
+        return cards;
     }
     
     
@@ -129,11 +146,21 @@ public class Board {
      * @param attributes the number of attributes being used
      */
     public Board(List<Card> cards, int attributes) {
+        defaultColumns = attributes;
+        resetGame(cards);
+        checkRep();
+    }
+    
+    /**
+     * Performs a reset of the game.
+     * @param cards the list of cards used for the game
+     */
+    public synchronized void resetGame(List<Card> cards) {
         List<Card> cardsCopy = new ArrayList<>(cards);
         int counter = 0;
         gameBoard = new ArrayList<>();
         
-        defaultColumns = attributes;
+//        defaultColumns = attributes;
         
         for (int i=0; i<DEFAULT_ROWS; i++) {
             List<Card> newRow = new ArrayList<>();
@@ -154,8 +181,6 @@ public class Board {
         votes = Collections.synchronizedSet(new HashSet<>());
         declareQueue = new LinkedList<>();
         executor = Executors.newSingleThreadScheduledExecutor();
-        
-        checkRep();
     }
     
     /**
@@ -186,7 +211,7 @@ public class Board {
      * @return whether the two have the same value
      */
     private boolean sameValue(Board that) {
-        return this.gameBoard.equals(that.gameBoard) 
+        return this.gameBoard.equals(that.gameBoard) // TODO update when finalized instance variables
                 && this.scores.equals(that.scores)
                 && this.cardsRemaining.equals(that.cardsRemaining)
                 && this.activePlayer.equals(that.activePlayer)
@@ -526,7 +551,8 @@ public class Board {
         if (!playerID.equals(activePlayer)) { // cannot pick card if not currently the player picking cards
             return; 
         }
-        if (squaresHeld.contains(square)) { // nothing happens if card already selected is picked again
+        if (squaresHeld.contains(square)) { // toggle if card already selected is picked again
+            squaresHeld.remove(square);
             return;
         }
         
@@ -558,4 +584,6 @@ public class Board {
         }
         callListeners();
     }
+    
+
 }
