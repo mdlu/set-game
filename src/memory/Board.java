@@ -402,7 +402,7 @@ public class Board {
     }
     
     /** 
-     * Allows a player to declare they've foud a set, giving them rights to start picking 3 cards.
+     * Allows a player to declare they've found a set, giving them rights to start picking 3 cards.
      * @param playerID the unique ID of the player
      */
     public synchronized void declareSet(String playerID) {

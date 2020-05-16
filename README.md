@@ -1,6 +1,6 @@
 ## Set
 #### Basic Use:
-- run with "java -ea -cp bin memory.ServerMain 8080 4", where 8008 is the port and 4 is the number of attributes on a card (supports either 3 or 4 right now)
+- run with "java -ea -cp bin memory.ServerMain 8080 4", where 8008 is the port and 4 is the number of attributes on a card (supports 1-4 attirbutes right now)
 - /look/player route to see the current board
 - /declare/player for a player to claim they have a set, giving them rights to pick cards
 - /pick/player/row,col for a player to pick a card on the board (zero-indexed)
@@ -17,7 +17,7 @@ A card in Set has four basic attributes:
 If 4 attributes are desired, all are used; if only 3 are desired, all shapes default to squiggle.
 
 #### Rules: 
-- If 4 attributes are being used, a 3x4 board is laid out; if 3 attributes, then a 3x3 board is used.
+- If 4 attributes are being used, a 3x4 board is laid out; if 3 attributes, then a 3x3 board is used; etc.
 - The objective is to find Sets, where a Set is defined as three cards where, for each basic attribute, the properties of the three cards are all the same, or all different.
 - To declare you have a found a Set, you click "Declare". You then have 5 seconds to click 3 cards which you believe are a Set.
 - If your 3 cards make a Set, you gain 10 points; if they are not a Set, or you time out, you lose 5 points.
@@ -25,9 +25,8 @@ If 4 attributes are desired, all are used; if only 3 are desired, all shapes def
 - If you believe no Set exists on the given board, you can vote to add 3 more cards by clicking "Add". If all players vote to add, a new column of 3 cards will be added to the board.
 
 #### Thoughts:
-- mechanism for adding 3 cards if nobody can find a set, perhaps require everyone to vote to agree (consider: odds of there not being a set in 15 cards? 18 cards? 21 cards? and adjusting game/UI accordingly), also some sort of time limit so someone can't say no forever
+-  some sort of time limit so someone can't say no forever?
 - implementing some sort of hint mechanism? (if people can't find a Set)
-- scoreboard, scoring mechanism? (should there be any time element involved?)
 - customizable shapes/colors/etc?
 - stuff shamelessly stolen from Jenna on the cpw discord: https://www.maa.org/sites/default/files/pdf/pubs/SetsPlanetsAndComets.pdf, apparently any group of 12 cards is guaranteed a planet, comet, or set? :O also multidimensional set -- variant where you duplicate all cards 3 times and add a border color as a 5th distinguishing characteristic, could be fun
 - shuffling two decks together maybe?
