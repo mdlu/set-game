@@ -18,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * ADT representing a Set game board.
@@ -44,7 +45,7 @@ public class Board {
     public static List<Card> generateRandomCards(int attributes) {
         List<Card> cards = new ArrayList<>();
         
-        // TODO attempt at avoiding magic numbers
+        // attempt at avoiding magic numbers
 //        int numCards = 3;
 //        int[] indices = {numCards, numCards, numCards, numCards};
 //        
@@ -384,7 +385,7 @@ public class Board {
     /**
      * Schedule a time limit for a player to declare a set.
      */
-    public void scheduleTimeout() {
+    public synchronized void scheduleTimeout() {
         result = executor.schedule(new Runnable () {
             public void run() {
                 timedOut(activePlayer);
@@ -476,6 +477,11 @@ public class Board {
                 setCard(sq, newCard);
             }
         }
+        if (cardsRemaining.size() == 0) {
+            if (!existsSet()) {
+                resetGame(generateRandomCards(defaultColumns));
+            }
+        }
         callListeners();
     }
     
@@ -501,6 +507,12 @@ public class Board {
         if (votes.size() == numPlayers()) { // adds cards if all players agree
             addCards();
             votes.clear();
+            
+            if (cardsRemaining.size() == 0) {
+                if (!existsSet()) {
+                    resetGame(generateRandomCards(defaultColumns));
+                }
+            }
         }
         callListeners();
     }
@@ -585,5 +597,70 @@ public class Board {
         callListeners();
     }
     
+    /**
+     * Finds whether a Set exists on the remaining cards on the board.
+     * @return whether a Set exists
+     */
+    public synchronized boolean existsSet() {
+        List<Card> allCards = gameBoard.stream().flatMap(List::stream).collect(Collectors.toList());
+        Set<Card> allCardsSet = new HashSet<>(allCards);
+        for (int i=0; i<allCards.size(); i++) {
+            for (int j=i+1; j<allCards.size(); j++) {
+                Card missing = missingCard(allCards.get(i), allCards.get(j));
+                if (allCardsSet.contains(missing)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Given two cards, identifies the unique third card which will complete a Set.
+     * @param card1
+     * @param card2
+     * @return the third card required to complete the Set
+     */
+    public synchronized Card missingCard(Card card1, Card card2) {
+        // TODO can probably be DRYed but might be difficult using the existing enums
+        Card.Color color;
+        Card.Number number;
+        Card.Shading shading;
+        Card.Shape shape;
+        
+        if (card1.color().equals(card2.color())) {
+            color = card1.color();
+        } else {
+            List<Card.Color> colors = new ArrayList<>(Arrays.asList(Card.Color.values()));
+            colors.removeAll(List.of(card1.color(), card2.color()));
+            color = colors.get(0);
+        }
+        
+        if (card1.number().equals(card2.number())) {
+            number = card1.number();
+        } else {
+            List<Card.Number> numbers = new ArrayList<>(Arrays.asList(Card.Number.values()));
+            numbers.removeAll(List.of(card1.number(), card2.number()));
+            number = numbers.get(0);
+        }
+        
+        if (card1.shading().equals(card2.shading())) {
+            shading = card1.shading();
+        } else {
+            List<Card.Shading> shadings = new ArrayList<>(Arrays.asList(Card.Shading.values()));
+            shadings.removeAll(List.of(card1.shading(), card2.shading()));
+            shading = shadings.get(0);
+        }
+        
+        if (card1.shape().equals(card2.shape())) {
+            shape = card1.shape();
+        } else {
+            List<Card.Shape> shapes = new ArrayList<>(Arrays.asList(Card.Shape.values()));
+            shapes.removeAll(List.of(card1.shape(), card2.shape()));
+            shape = shapes.get(0);
+        }
+        
+        return new Card(color, number, shading, shape);
+    }
 
 }
