@@ -54,13 +54,21 @@ public class Board {
 //        }
         
         for (Card.Color color: Card.Color.values()) {
-            for (Card.Number number: Card.Number.values()) {
-                for (Card.Shading shading: Card.Shading.values()) {
-                    if (attributes == 3) {
-                        cards.add(new Card(color, number, shading, Card.Shape.SQUIGGLE));
+            if (attributes == 1) {
+                cards.add(new Card(color, Card.Number.ONE, Card.Shading.SOLID, Card.Shape.SQUIGGLE));
+            } else {
+                for (Card.Number number: Card.Number.values()) {
+                    if (attributes == 2) {
+                        cards.add(new Card(color, number, Card.Shading.SOLID, Card.Shape.SQUIGGLE));
                     } else {
-                        for (Card.Shape shape: Card.Shape.values()) {
-                            cards.add(new Card(color, number, shading, shape));
+                        for (Card.Shading shading: Card.Shading.values()) {
+                            if (attributes == 3) {
+                                cards.add(new Card(color, number, shading, Card.Shape.SQUIGGLE));
+                            } else {
+                                for (Card.Shape shape: Card.Shape.values()) {
+                                    cards.add(new Card(color, number, shading, shape));
+                                }
+                            }
                         }
                     }
                 }
