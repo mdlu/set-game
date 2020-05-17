@@ -5,13 +5,10 @@ package memory;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.stream.Collectors;
 
 /**
  * Game server runner.
@@ -82,10 +79,10 @@ public class ServerMain {
         new WebServer(board, port).start();
     }
     
-    /**
-     * @param characterCodes a collection of character codes as hexadecimal strings
-     * @return a list of strings containing those characters
-     */
+//    /**
+//     * @param characterCodes a collection of character codes as hexadecimal strings
+//     * @return a list of strings containing those characters
+//     */
 //    private static List<String> parseCharacterCodes(Collection<String> characterCodes) {
 //        try {
 //            return characterCodes.stream()
