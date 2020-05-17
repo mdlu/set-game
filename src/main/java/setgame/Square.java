@@ -1,4 +1,4 @@
-package memory;
+package setgame;
 
 /** 
  * ADT representing the coordinates of a given square in a Board.

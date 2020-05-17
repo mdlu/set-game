@@ -21,4 +21,4 @@ if [ $# -gt 0 ]; then
 	attr="$1"
 fi
 
-java -ea -cp bin memory.ServerMain 8080 "$attr"
+java -ea -cp target/classes setgame.ServerMain 8080 "$attr"

@@ -1,7 +1,7 @@
 /* Copyright (c) 2017-2020 MIT 6.031 course staff, all rights reserved.
  * Redistribution of original or derived work requires permission of course staff.
  */
-package memory;
+package setgame;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -20,9 +20,9 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
-import memory.web.ExceptionsFilter;
-import memory.web.HeadersFilter;
-import memory.web.LogFilter;
+import setgame.web.ExceptionsFilter;
+import setgame.web.HeadersFilter;
+import setgame.web.LogFilter;
 
 /**
  * HTTP web game server.

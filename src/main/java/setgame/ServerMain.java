@@ -1,7 +1,7 @@
 /* Copyright (c) 2017-2020 MIT 6.031 course staff, all rights reserved.
  * Redistribution of original or derived work requires permission of course staff.
  */
-package memory;
+package setgame;
 
 import java.io.IOException;
 import java.util.Arrays;
