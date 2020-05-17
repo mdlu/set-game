@@ -1,1 +1,1 @@
-web: java -jar target/set-game-0.0.1-SNAPSHOT.jar
+web: java -ea -cp bin memory.ServerMain 8080 4
