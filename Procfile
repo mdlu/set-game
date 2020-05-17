@@ -1,1 +1,1 @@
-web: java -ea -cp bin memory.ServerMain 8080 4
+web: sh start-server.sh
