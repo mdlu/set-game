@@ -1,1 +1,1 @@
-web: sh start-server.sh
+web: java -ea -cp target/classes setgame.ServerMain "$PORT" 4
