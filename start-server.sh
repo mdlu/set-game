@@ -11,7 +11,7 @@
 #   1) how many properties to play with (defaults to 4)
 
 if [ $# -eq 1 ] && [ "$1" = "--help" ]; then
-	echo "Usage: $0 [ATTRIBUTES=100]"
+	echo "Usage: $0 [ATTRIBUTES=4]"
 	exit 1
 fi
 
