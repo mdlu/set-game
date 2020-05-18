@@ -415,6 +415,11 @@ public class WebServer {
         final String response;
         if (player.matches("\\w+")) {
             exchange.sendResponseHeaders(SUCCESS_CODE, 0);
+            if (!board.isPlayer(player)) {
+                board.addPlayer(player);
+            }
+            
+            board.cancelInactivity(player); 
             synchronized (board) {
                 try {
                     board.wait();
@@ -422,7 +427,8 @@ public class WebServer {
                     e.printStackTrace();
                 }
             }
-            response = boardResponse(player);
+            response = boardResponse(player); // used to remove players if a /watch request isn't sent again within a time limit
+            board.scheduleInactivity(player);
         } else {
             exchange.sendResponseHeaders(ERROR_CODE, 0);
             response = "Your player name ID may only consist of alphanumeric characters.";

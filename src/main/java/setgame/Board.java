@@ -104,6 +104,7 @@ public class Board {
     
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> result;
+    private Map<String, ScheduledFuture<?>> playerTimeouts = new HashMap<>();
     
     private Set<BoardListener> listeners = new HashSet<>();
     
@@ -401,6 +402,39 @@ public class Board {
         }, TIME_LIMIT_IN_MILLIS, TimeUnit.MILLISECONDS);
     }
     
+    /**
+     * Schedules a time limit for a player before they are removed from the game.
+     * @param playerID unique ID of the player
+     */
+    public synchronized void scheduleInactivity(String playerID) {
+        ScheduledFuture<?> inactiveResult = executor.schedule(new Runnable () {
+            public void run() {
+                removePlayer(playerID);
+            }
+        }, TIME_LIMIT_IN_MILLIS, TimeUnit.MILLISECONDS);
+        playerTimeouts.put(playerID, inactiveResult);
+    }
+    
+    /**
+     * Cancels the removal of a player due to inactivity.
+     * @param playerID unique ID of the player
+     */
+    public synchronized void cancelInactivity(String playerID) {
+        if (playerTimeouts.keySet().contains(playerID)) {
+            playerTimeouts.get(playerID).cancel(false);
+        }
+    }
+    
+    /**
+     * Removes a player from the game.
+     * @param playerID unique ID of the player
+     */
+    public synchronized void removePlayer(String playerID) {
+        scores.remove(playerID);
+        checkVotes(); // could be the case that if a player is removed, the votes for adding are now unanimous
+        callListeners();
+    }
+    
     /** 
      * Allows a player to declare they've found a set, giving them rights to start picking 3 cards.
      * @param playerID the unique ID of the player
@@ -512,6 +546,14 @@ public class Board {
             return; 
         }
         votes.add(playerID);
+        checkVotes();
+        callListeners();
+    }
+    
+    /**
+     * Checks to see if everyone has unanimously voted to add 3 more cards.
+     */
+    public synchronized void checkVotes() {
         if (votes.size() == numPlayers()) { // adds cards if all players agree
             addCards();
             votes.clear();
@@ -522,7 +564,6 @@ public class Board {
                 }
             }
         }
-        callListeners();
     }
     
     /**
