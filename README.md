@@ -1,4 +1,8 @@
 ## Set
+#### Play Here:
+https://richardliutl.github.io/set-frontend/index.html
+#### Front-End Implementation:
+https://github.com/richardliutl/set-frontend
 #### Basic Use:
 - run with "java -ea -cp bin memory.ServerMain 8080 4", where 8008 is the port and 4 is the number of attributes on a card (supports 1-4 attirbutes right now)
 - /look/player route to see the current board
@@ -28,7 +32,7 @@ If 4 attributes are desired, all are used; if only 3 are desired, all shapes def
 -  some sort of time limit so someone can't say no forever?
 - implementing some sort of hint mechanism? (if people can't find a Set)
 - customizable shapes/colors/etc?
-- stuff shamelessly stolen from Jenna on the cpw discord: https://www.maa.org/sites/default/files/pdf/pubs/SetsPlanetsAndComets.pdf, apparently any group of 12 cards is guaranteed a planet, comet, or set? :O also multidimensional set -- variant where you duplicate all cards 3 times and add a border color as a 5th distinguishing characteristic, could be fun
+- https://www.maa.org/sites/default/files/pdf/pubs/SetsPlanetsAndComets.pdf, apparently any group of 12 cards is guaranteed a planet, comet, or set? :O also multidimensional set -- variant where you duplicate all cards 3 times and add a border color as a 5th distinguishing characteristic, could be fun
 - shuffling two decks together maybe?
 - some slides from high school math teacher haha https://drive.google.com/open?id=0B0RzSSfFNbOHflRGYTZ2VkZIZFo4VmhidWFlS2ZYdkRYQS1ZcEk3WmMxdmxpSGxHWDJNdUk
 
