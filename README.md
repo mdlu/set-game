@@ -4,7 +4,7 @@ https://richardliutl.github.io/set-frontend/index.html
 #### Front-End Implementation:
 https://github.com/richardliutl/set-frontend
 #### Basic Use:
-- run with "java -ea -cp bin memory.ServerMain 8080 4", where 8008 is the port and 4 is the number of attributes on a card (supports 1-4 attirbutes right now)
+- run with "java -ea -cp target/classes setgame.ServerMain 8080 4", where 8008 is the port and 4 is the number of attributes on a card (supports 1-4 attirbutes right now)
 - /look/player route to see the current board
 - /declare/player for a player to claim they have a set, giving them rights to pick cards
 - /pick/player/row,col for a player to pick a card on the board (zero-indexed)
